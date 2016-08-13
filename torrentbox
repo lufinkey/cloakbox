@@ -5,11 +5,12 @@ cd "$base_dir"
 
 if [ "$1" == "setup" ]
 then
+	read -p "enter your PIA username: " pia_user
+	read -s -p "enter your PIA password: " pia_pass
+	
 	mkdir -p "shared"
 	rm -rf "shared/.setup_done"
 	vagrant plugin install vagrant-vbguest
-	read -p "enter your PIA username: " pia_user
-	read -p "enter your PIA password: " pia_pass
 	mkdir -p "shared/tmp"
 	echo "$pia_user" > "shared/tmp/.pia_credentials"
 	echo "$pia_pass" >> "shared/tmp/.pia_credentials"
