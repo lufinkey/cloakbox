@@ -1,35 +1,41 @@
 #!/bin/bash
 
 base_dir=$(dirname "${BASH_SOURCE[0]}")
-cd "$base_dir"
 
 if [ "$1" == "setup" ]
 then
+	cd "$base_dir"
+
 	read -p "enter your PIA username: " pia_user
 	read -s -p "enter your PIA password: " pia_pass
 	echo ""
-	
+
 	mkdir -p "shared"
-	rm -rf "shared/.setup_done"
+	mkdir -p "shared/.torrentbox"
+	mkdir -p "shared/downloads"
+	rm -rf "shared/.torrentbox/setup_done"
 	vagrant plugin install vagrant-vbguest
-	mkdir -p "shared/tmp"
-	echo "$pia_user" > "shared/tmp/.pia_credentials"
-	echo "$pia_pass" >> "shared/tmp/.pia_credentials"
+	mkdir -p "shared/.torrentbox/tmp"
+	echo "$pia_user" > "shared/.torrentbox/tmp/pia_credentials"
+	echo "$pia_pass" >> "shared/.torrentbox/tmp/pia_credentials"
 	vagrant up --provision
 	vagrant halt
-	rm -rf "shared/tmp/.pia_credentials"
+	rm -rf "shared/.torrentbox/tmp/pia_credentials"
 elif [ "$1" == "start" ]
 then
-	if [ ! -f "shared/.setup_done" ]
+	cd "$base_dir"
+	if [ ! -f "shared/.torrentbox/setup_done" ]
 	then
 		"$0" setup
 	fi
 	vagrant up
 elif [ "$1" == "stop" ]
 then
+	cd "$base_dir"
 	vagrant halt
 elif [ "$1" == "clean" ]
 then
+	cd "$base_dir"
 	# TODO maybe prompt before cleaning? I dunno
 	vagrant destroy -f
 	rm -rf shared
