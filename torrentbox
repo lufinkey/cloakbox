@@ -7,6 +7,7 @@ if [ "$1" == "setup" ]
 then
 	read -p "enter your PIA username: " pia_user
 	read -s -p "enter your PIA password: " pia_pass
+	echo ""
 	
 	mkdir -p "shared"
 	rm -rf "shared/.setup_done"
@@ -14,8 +15,9 @@ then
 	mkdir -p "shared/tmp"
 	echo "$pia_user" > "shared/tmp/.pia_credentials"
 	echo "$pia_pass" >> "shared/tmp/.pia_credentials"
-	vagrant reload --provision
+	vagrant up --provision
 	vagrant halt
+	rm -rf "shared/tmp/.pia_credentials"
 elif [ "$1" == "start" ]
 then
 	if [ ! -f "shared/.setup_done" ]
@@ -26,4 +28,12 @@ then
 elif [ "$1" == "stop" ]
 then
 	vagrant halt
+elif [ "$1" == "clean" ]
+then
+	# TODO maybe prompt before cleaning? I dunno
+	vagrant destroy -f
+	rm -rf shared
+	rm -f *.log
+	# TODO add a flag for also deleting the .vagrant folder
 fi
+
