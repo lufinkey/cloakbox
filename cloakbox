@@ -16,6 +16,7 @@ then
 	mkdir -p "shared/downloads"
 	rm -rf "shared/.$prog_name/setup_done"
 	vagrant plugin install vagrant-vbguest
+	vagrant plugin install vagrant-sshfs
 	mkdir -p "shared/.$prog_name/tmp"
 	echo "$pia_user" > "shared/.$prog_name/tmp/pia_credentials"
 	echo "$pia_pass" >> "shared/.$prog_name/tmp/pia_credentials"
