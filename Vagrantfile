@@ -4,7 +4,7 @@ Vagrant.configure(2) do |config|
 	config.vm.box = "ubuntu/xenial32"
 
 	config.vm.provider "virtualbox" do |vb|
-		vb.name = "Torrent Box"
+		vb.name = "cloakbox"
 		vb.gui = false
 		vb.memory = "2048"
 	end
@@ -18,3 +18,4 @@ Vagrant.configure(2) do |config|
 
 	config.vm.provision "shell", path: "scripts/vagrant-setup.sh"
 end
+

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 base_dir=$(dirname "${BASH_SOURCE[0]}")
+prog_name=cloakbox
 
 if [ "$1" == "setup" ]
 then
@@ -11,20 +12,20 @@ then
 	echo ""
 
 	mkdir -p "shared"
-	mkdir -p "shared/.torrentbox"
+	mkdir -p "shared/.$prog_name"
 	mkdir -p "shared/downloads"
-	rm -rf "shared/.torrentbox/setup_done"
+	rm -rf "shared/.$prog_name/setup_done"
 	vagrant plugin install vagrant-vbguest
-	mkdir -p "shared/.torrentbox/tmp"
-	echo "$pia_user" > "shared/.torrentbox/tmp/pia_credentials"
-	echo "$pia_pass" >> "shared/.torrentbox/tmp/pia_credentials"
+	mkdir -p "shared/.$prog_name/tmp"
+	echo "$pia_user" > "shared/.$prog_name/tmp/pia_credentials"
+	echo "$pia_pass" >> "shared/.$prog_name/tmp/pia_credentials"
 	vagrant up --provision
 	vagrant halt
-	rm -rf "shared/.torrentbox/tmp/pia_credentials"
+	rm -rf "shared/.$prog_name/tmp/pia_credentials"
 elif [ "$1" == "start" ]
 then
 	cd "$base_dir"
-	if [ ! -f "shared/.torrentbox/setup_done" ]
+	if [ ! -f "shared/.$prog_name/setup_done" ]
 	then
 		"$0" setup
 	fi

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+prog_name=cloakbox
+
 # Install dependencies and place files
 echo "Installing dependencies"
 sudo apt-get install -y aria2 unzip openvpn jq
@@ -21,13 +23,13 @@ echo "Setting up openvpn"
 	cd /etc/openvpn
 	if [ ! -f openvpn.zip ]
 	then
-		sudo wget https://www.privateinternetaccess.com/openvpn/openvpn.zip
+		sudo wget "https://www.privateinternetaccess.com/openvpn/openvpn.zip"
 		sudo unzip -o openvpn.zip
 	fi
-	if [ -f "/shared/.torrentbox/tmp/pia_credentials" ]
+	if [ -f "/shared/.$prog_name/tmp/pia_credentials" ]
 	then
 		sudo rm -rf "/etc/openvpn/auth.txt"
-		sudo mv "/shared/.torrentbox/tmp/pia_credentials" "/etc/openvpn/auth.txt"
+		sudo mv "/shared/.$prog_name/tmp/pia_credentials" "/etc/openvpn/auth.txt"
 	fi
 
 	openvpn_prefs=$(
@@ -40,7 +42,7 @@ EOF
 	})
 	sudo echo "$openvpn_prefs" > /etc/default/openvpn
 
-	openvpn_conf="torrentbox.conf"
+	openvpn_conf="$prog_name.conf"
 
 	cat "US East.ovpn" | sed -e 's/^auth-user-pass.*//' > "$openvpn_conf"
 	echo 'auth-user-pass "auth.txt"' >> "$openvpn_conf"
@@ -66,20 +68,19 @@ daemon=true
 enable-rpc=true
 rpc-listen-port=6800
 rpc-listen-all=false
-max-download-limit=200K
-save-session=/etc/aria2/aria2d_data
-input-file=/etc/aria2/aria2d_data
+save-session=/etc/aria2/aria2d_queue
+input-file=/etc/aria2/aria2d_queue
 log=/var/log/aria2d.log
 EOF
 	})
 	sudo mkdir -p "/etc/aria2"
 	sudo touch "/var/log/aria2d.log"
 	sudo echo "$aria2_prefs" > "/etc/aria2/aria2d.conf"
-	sudo touch "/etc/aria2/aria2d_data"
+	sudo touch "/etc/aria2/aria2d_queue"
 
 	sleep 2
 	sudo service aria2d start
 )
 
-touch "/shared/.torrentbox/setup_done"
+touch "/shared/.$prog_name/setup_done"
 
