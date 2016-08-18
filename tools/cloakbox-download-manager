@@ -5,8 +5,6 @@ prog_name=cloakbox
 readonly EXITCODE_UNKNOWN_ERROR=1
 readonly EXITCODE_BAD_ARGS=28
 
-readonly EXITCODE_BAD_URL=101
-
 readonly DOWNLOADS_ROOT="/shared/downloads"
 readonly RPC_URL="http://localhost:6800/jsonrpc"
 
@@ -24,14 +22,26 @@ function rpc-post-data
 
 if [ "$1" == "add" ]
 then
+	# Read the arguments
 	url="$2"
 	if [ -z "$url" ]
 	then
-		>&2 echo "error: add requires a URL to be given"
+		>&2 echo "error: add requires a torrent path or URL to be given"
+		exit $EXITCODE_BAD_ARGS
+	fi
+	options="$3"
+	if [ -z "$options" ]
+	then
+		options="{}"
+	fi
+	options_type=$(echo "$options" | jq -r "type")
+	if [ "$options_type" != "object" ]
+	then
+		>&2 echo "error: options must be a json object type"
 		exit $EXITCODE_BAD_ARGS
 	fi
 
-	# Create a unique folder
+	# Create a unique folder to store the download
 	foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 32)
 	while [ -d "$DOWNLOADS_ROOT/$foldername" ]
 	do
@@ -42,15 +52,15 @@ then
 	# Make the request
 	escaped_url=$(json-escape "$url")
 	escaped_folderpath=$(json-escape "$DOWNLOADS_ROOT/$foldername")
-	post_params="[\"$escaped_url\"], {\"dir\":\"$escaped_folderpath\"}"
+	options=$(echo "$options" | jq ".dir = \"$escaped_folderpath\""
+	post_params="[\"$escaped_url\"], $options"
 	post_data=$(rpc-post-data "aria2.addUri" "$post_params")
 	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-
 	if [ -z "$resp" ]
 	then
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
-		>&2 echo "Invalid URL"
-		exit $EXITCODE_BAD_URL
+		>&2 echo "error: an unknown error occured"
+		exit $EXITCODE_UNKNOWN_ERROR
 	fi
 
 	# Make another request to check the status of the download
@@ -63,7 +73,7 @@ then
 	if [ "$status" == "error" ]
 	then
 		# Remove the broken download and exit
-		>&2 echo "Unable to start download"
+		>&2 echo "error: unable to start download"
 		error_code=$(echo "$resp2" | jq -r ".result.errorCode")
 		post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
 		wget -q "$RPC_URL" --post-data="$post_data3"
