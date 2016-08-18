@@ -35,10 +35,10 @@ elif [ "$1" == "stop" ]
 then
 	cd "$base_dir"
 	vagrant halt
-elif [ "$1" == "clean" ]
+elif [ "$1" == "destroy" ]
 then
 	cd "$base_dir"
-	# TODO maybe prompt before cleaning? I dunno
+	# TODO maybe prompt before destroying? I dunno
 	vagrant destroy -f
 	rm -rf shared
 	rm -f *.log
