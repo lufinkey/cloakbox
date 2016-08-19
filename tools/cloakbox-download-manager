@@ -5,6 +5,10 @@ prog_name=cloakbox
 readonly EXITCODE_UNKNOWN_ERROR=1
 readonly EXITCODE_BAD_ARGS=28
 
+readonly EXITCODE_FILE_NOT_FOUND=101
+readonly EXITCODE_UNKNOWN_MIME_TYPE=102
+readonly EXITCODE_UNSUPPORTED_MIME_TYPE=103
+
 readonly DOWNLOADS_ROOT="/shared/downloads"
 readonly RPC_URL="http://localhost:6800/jsonrpc"
 
@@ -26,7 +30,8 @@ then
 	url="$2"
 	if [ -z "$url" ]
 	then
-		>&2 echo "error: add requires a torrent path or URL to be given"
+		>&2 echo "add requires a torrent path, URL, or magnet link to be given"
+		# TODO show usage
 		exit $EXITCODE_BAD_ARGS
 	fi
 	options="$3"
@@ -37,7 +42,8 @@ then
 	options_type=$(echo "$options" | jq -r "type")
 	if [ "$options_type" != "object" ]
 	then
-		>&2 echo "error: options must be a json object type"
+		>&2 echo "options must be a json object type"
+		#TODO show usage
 		exit $EXITCODE_BAD_ARGS
 	fi
 
@@ -50,14 +56,56 @@ then
 	mkdir -p "$DOWNLOADS_ROOT/$foldername"
 
 	# Make the request
-	escaped_url=$(json-escape "$url")
 	escaped_folderpath=$(json-escape "$DOWNLOADS_ROOT/$foldername")
-	options=$(echo "$options" | jq ".dir = \"$escaped_folderpath\""
-	post_params="[\"$escaped_url\"], $options"
-	post_data=$(rpc-post-data "aria2.addUri" "$post_params")
+	options=$(echo "$options" | jq ".dir = \"$escaped_folderpath\"")
+	if [[ "$url" =~ ^[0-9a-zA-Z_\-]+:\/\/.* ]] || [[ "$url" =~ magnet:\?xt=.* ]]
+	then
+		# URL or magnet link
+		escaped_url=$(json-escape "$url")
+		post_params="[\"$escaped_url\"], $options"
+		post_data=$(rpc-post-data "aria2.addUri" "$post_params")
+	else
+		# File
+		if [ ! -f "$url" ]
+		then
+			>&2 echo "Could not open file \"$url\""
+			exit $EXITCODE_FILE_NOT_FOUND
+		fi
+		mime_type=$(file -b --mime-type "$url")
+		if [ "$mime_type" == "application/x-bittorrent" ]
+		then
+			# Torrent
+			file_contents=$(cat "$url" | base64)
+			file_contents=$(json-escape "$file_contents")
+			post_params="\"$file_contents\", [], $options"
+			post_data=$(rpc-post-data "aria2.addTorrent" "$post_params")
+		elif [ "$mime_type" == "application/metalink4+xml" ]
+		then
+			# Metalink
+			file_contents=$(cat "$url" | base64)
+			file_contents=$(json-escape "$file_contents")
+			post_params="\"$file_contents\", $options"
+			post_data=$(rpc-post-data "aria2.addMetalink" "$post_params")
+		elif [ -z "$mime_type" ]
+		then
+			>&2 echo "Unable to determine file mime-type"
+			exit $EXITCODE_UNKNOWN_MIME_TYPE
+		else
+			>&2 echo "Unsupported file mime-type \"$mime_type\""
+			exit $EXITCODE_UNSUPPORTED_MIME_TYPE
+		fi
+	fi
 	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
 	if [ -z "$resp" ]
 	then
+		rm -rf "$DOWNLOADS_ROOT/$foldername"
+		>&2 echo "error: an unknown error occured"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+	result_obj=$(echo "$resp" | jq ".result")
+	if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
+	then
+		# TODO check for error code maybe? I don't remember if this response has an error code and I'm too lazy to check it right now
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
 		>&2 echo "error: an unknown error occured"
 		exit $EXITCODE_UNKNOWN_ERROR
@@ -73,7 +121,7 @@ then
 	if [ "$status" == "error" ]
 	then
 		# Remove the broken download and exit
-		>&2 echo "error: unable to start download"
+		>&2 echo "unable to start download"
 		error_code=$(echo "$resp2" | jq -r ".result.errorCode")
 		post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
 		wget -q "$RPC_URL" --post-data="$post_data3"
@@ -85,5 +133,6 @@ then
 	echo "GID: $gid"
 	echo "path: $DOWNLOADS_ROOT/$foldername"
 	echo "status: $status"
+
 fi
 
