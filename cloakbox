@@ -39,6 +39,11 @@ elif [ "$1" == "destroy" ]
 then
 	cd "$base_dir"
 	# TODO maybe prompt before destroying? I dunno
+	if [ ! -d "shared" ]
+	then
+		# the vagrant box won't actually destroy if the shared folder isn't there
+		mkdir -p "shared"
+	fi
 	vagrant destroy -f
 	rm -rf shared
 	rm -f *.log
