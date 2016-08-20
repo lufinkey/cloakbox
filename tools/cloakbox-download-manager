@@ -25,6 +25,35 @@ function rpc-post-data
 	echo "{\"jsonrpc\":\"2.0\", \"id\":\"$prog_name\", \"method\":\"$escaped_method\", \"params\":[$2]}"
 }
 
+function output-result
+{
+	result="$1"
+	prefix="$2"
+	keys=$(echo "$result" | jq "keys")
+	keys_length=$(echo "$keys" | jq "length")
+	key_counter=0
+	while [ "$key_counter" -lt "$keys_length" ]
+	do
+		key=$(echo "$keys" | jq -r ".[$key_counter]")
+		escaped_key=$(json-escape "$key")
+		value_obj=$(echo "$result" | jq ".\"$escaped_key\"")
+		value_type=$(echo "$value_obj" | jq -r "type")
+		if [ "$value_type" == "string" ]
+		then
+			value=$(echo "$value_obj" | jq -r ".")
+			if [ -n "$value" ]
+			then
+				echo "$prefix$key: $value"
+			fi
+		elif [ "$value_type" == "object" ]
+		then
+			sub_values=$(output-result "$value_obj" "$prefix$key.")
+			echo "$sub_values"
+		fi
+		key_counter=$(($key_counter+1))
+	done
+}
+
 # TODO add better error handling when they finally decide to add it to aria2
 
 if [ "$1" == "add" ]
@@ -163,17 +192,18 @@ then
 	if [ -z "$gid" ]
 	then
 		>&2 echo "no GID specified"
+		# TODO show usage
 		exit $EXITCODE_BAD_ARGS
 	fi
 
 	# Make request for the download's dir option
 	escaped_gid=$(json-escape "$gid")
-	post_data=$(rpc-post-data "aria2.getOption" "\"$escaped_gid\"")
+	post_data=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
 	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
 	if [ -z "$resp" ]
 	then
 		>&2 echo "an unknown error occured"
-		echo "$post_data"
+		# TODO show usage
 		exit $EXITCODE_UNKNOWN_ERROR
 	fi
 	result_obj=$(echo "$resp" | jq ".result")
@@ -181,27 +211,50 @@ then
 	then
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
 		>&2 echo "an unknown error occured"
+		# TODO show usage
 		exit $EXITCODE_UNKNOWN_ERROR
 	fi
 	download_dir=$(echo "$resp" | jq -r ".result.dir")
 
-	# Make "remove" request
-	post_data2=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
+	# Make "pause" request
+	post_data2=$(rpc-post-data "aria2.pause" "\"$escaped_gid\"")
 	resp2=$(wget -q -O - "$RPC_URL" --post-data="$post_data2")
-	removed_gid=$(echo "$resp2" | jq -r ".result")
+	paused_gid=$(echo "$resp2" | jq -r ".result")
+	if [ -z "$paused_gid" ] || [ "$paused_gid" == "null" ]
+	then
+		>&2 echo "aria2 could not find the download"
+		exit $EXITCODE_DOWNLOAD_NOT_FOUND
+	fi
+	echo "paused download $paused_gid"
+
+	# Make "remove" request
+	post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
+	resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
+	removed_gid=$(echo "$resp3" | jq -r ".result")
 	if [ -z "$removed_gid" ] || [ "$removed_gid" == "null" ]
 	then
 		>&2 echo "aria2 could not find the download"
 		exit $EXITCODE_DOWNLOAD_NOT_FOUND
 	fi
+	echo "removed download $removed_gid"
 
 	# Remove the download from aria2
-	post_data3=$(rpc-post-data "aria2.removeDownloadResult" \"$escaped_gid\")
-	resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
-	resp3_result=$(echo "$resp3" | jq -r ".result")
-	if [ "$resp3_result" != "OK" ]
+	removal_fail_counter=0
+	removed_download_result=false
+	while [ "$removal_fail_counter" -lt 5 ] && ! $removed_download_result
+	do
+		post_data4=$(rpc-post-data "aria2.removeDownloadResult" \"$escaped_gid\")
+		resp4=$(wget -q -O - "$RPC_URL" --post-data="$post_data4")
+		resp4_result=$(echo "$resp4" | jq -r ".result")
+		if [ "$resp4_result" == "OK" ]
+		then
+			removed_download_result=true
+		fi
+		sleep 0.2
+	done
+	if ! $removed_download_result
 	then
-		>&2 echo "aria2 couldn't remove the download result. aria2 responded with \"$resp3_result\""
+		echo "aria2 couldn't remove the download result"
 	fi
 
 	# Remove the download folder if delete option is given
@@ -210,11 +263,50 @@ then
 		rm -rf "$download_dir"
 	fi
 
-	echo "Successfully removed download $removed_gid"
+	echo "Finished removing download $removed_gid"
 elif [ "$1" == "status" ]
 then
-	post_data=$(rpc-post-data "aria2.getGlobalStat")
-	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-	echo "$resp"
+	if [ -n "$2" ]
+	then
+		# Request status for single download
+		gid="$2"
+		escaped_gid=$(json-escape "$gid")
+		post_data=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
+		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+		if [ -z "$resp" ]
+		then
+			>&2 echo "an unknown error occurred"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+		result_obj=$(echo "$resp" | jq ".result")
+		if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
+		then
+			>&2 echo "an unknown error occured"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+
+		# Output status
+		output=$(output-result "$result_obj")
+		echo "$output"
+	else
+		# Request global status
+		post_data=$(rpc-post-data "aria2.getGlobalStat")
+		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+		if [ -z "$resp" ]
+		then
+			>&2 echo "an unknown error occurred"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+		result_obj=$(echo "$resp" | jq ".result")
+		if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
+		then
+			>&2 echo "an unknown error occured"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+
+		# Output global status
+		output=$(output-result "$result_obj")
+		echo "$output"
+	fi
 fi
 
