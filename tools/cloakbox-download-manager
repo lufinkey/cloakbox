@@ -8,6 +8,7 @@ readonly EXITCODE_BAD_ARGS=28
 readonly EXITCODE_FILE_NOT_FOUND=101
 readonly EXITCODE_UNKNOWN_MIME_TYPE=102
 readonly EXITCODE_UNSUPPORTED_MIME_TYPE=103
+readonly EXITCODE_DOWNLOAD_NOT_FOUND=104
 
 readonly DOWNLOADS_ROOT="/shared/downloads"
 readonly RPC_URL="http://localhost:6800/jsonrpc"
@@ -23,6 +24,8 @@ function rpc-post-data
 	escaped_method=$(json-escape "$1")
 	echo "{\"jsonrpc\":\"2.0\", \"id\":\"$prog_name\", \"method\":\"$escaped_method\", \"params\":[$2]}"
 }
+
+# TODO add better error handling when they finally decide to add it to aria2
 
 if [ "$1" == "add" ]
 then
@@ -68,7 +71,7 @@ then
 		# File
 		if [ ! -f "$url" ]
 		then
-			>&2 echo "Could not open file \"$url\""
+			>&2 echo "could not open file $url"
 			exit $EXITCODE_FILE_NOT_FOUND
 		fi
 		mime_type=$(file -b --mime-type "$url")
@@ -88,10 +91,10 @@ then
 			post_data=$(rpc-post-data "aria2.addMetalink" "$post_params")
 		elif [ -z "$mime_type" ]
 		then
-			>&2 echo "Unable to determine file mime-type"
+			>&2 echo "unable to determine file mime-type"
 			exit $EXITCODE_UNKNOWN_MIME_TYPE
 		else
-			>&2 echo "Unsupported file mime-type \"$mime_type\""
+			>&2 echo "unsupported file mime-type \"$mime_type\""
 			exit $EXITCODE_UNSUPPORTED_MIME_TYPE
 		fi
 	fi
@@ -99,21 +102,20 @@ then
 	if [ -z "$resp" ]
 	then
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
-		>&2 echo "error: an unknown error occured"
+		>&2 echo "an unknown error occured"
 		exit $EXITCODE_UNKNOWN_ERROR
 	fi
 	result_obj=$(echo "$resp" | jq ".result")
-	if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
+	if [ "$result_obj" == "null" ]
 	then
-		# TODO check for error code maybe? I don't remember if this response has an error code and I'm too lazy to check it right now
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
-		>&2 echo "error: an unknown error occured"
+		>&2 echo "an unknown error occured"
 		exit $EXITCODE_UNKNOWN_ERROR
 	fi
 
 	# Make another request to check the status of the download
 	gid=$(echo "$resp" | jq -r ".result")
-	escaped_gid=${gid//'"'/'\"'}
+	escaped_gid=$(json-escape "$gid")
 	post_data2=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
 	resp2=$(wget -q -O - "$RPC_URL" --post-data="$post_data2")
 
@@ -125,6 +127,8 @@ then
 		error_code=$(echo "$resp2" | jq -r ".result.errorCode")
 		post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
 		wget -q "$RPC_URL" --post-data="$post_data3"
+		post_data4=$(rpc-post-data "aria2.removeDownloadResult" "\"$escaped_gid\"")
+		wget -q "$RPC_URL" --post-data="$post_data4"
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
 		exit "$errorCode"
 	fi
@@ -133,6 +137,84 @@ then
 	echo "GID: $gid"
 	echo "path: $DOWNLOADS_ROOT/$foldername"
 	echo "status: $status"
+elif [ "$1" == "remove" ]
+then
+	# Read the arguments
+	gid=
+	delete=false
+	arg_counter=2
+	while [ $arg_counter -le $# ]
+	do
+		arg=${!arg_counter}
+		if [ "$arg" == "-d" ] || [ "$arg" == "--delete" ]
+		then
+			delete=true
+		else
+			if [ -z "$gid" ]
+			then
+				gid="$arg"
+			else
+				>&2 echo "unrecognized argument $arg"
+				exit $EXITCODE_BAD_ARGS
+			fi
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
+	if [ -z "$gid" ]
+	then
+		>&2 echo "no GID specified"
+		exit $EXITCODE_BAD_ARGS
+	fi
 
+	# Make request for the download's dir option
+	escaped_gid=$(json-escape "$gid")
+	post_data=$(rpc-post-data "aria2.getOption" "\"$escaped_gid\"")
+	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+	if [ -z "$resp" ]
+	then
+		>&2 echo "an unknown error occured"
+		echo "$post_data"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+	result_obj=$(echo "$resp" | jq ".result")
+	if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
+	then
+		rm -rf "$DOWNLOADS_ROOT/$foldername"
+		>&2 echo "an unknown error occured"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+	download_dir=$(echo "$resp" | jq -r ".result.dir")
+
+	# Make "remove" request
+	post_data2=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
+	resp2=$(wget -q -O - "$RPC_URL" --post-data="$post_data2")
+	removed_gid=$(echo "$resp2" | jq -r ".result")
+	if [ -z "$removed_gid" ] || [ "$removed_gid" == "null" ]
+	then
+		>&2 echo "aria2 could not find the download"
+		exit $EXITCODE_DOWNLOAD_NOT_FOUND
+	fi
+
+	# Remove the download from aria2
+	post_data3=$(rpc-post-data "aria2.removeDownloadResult" \"$escaped_gid\")
+	resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
+	resp3_result=$(echo "$resp3" | jq -r ".result")
+	if [ "$resp3_result" != "OK" ]
+	then
+		>&2 echo "aria2 couldn't remove the download result. aria2 responded with \"$resp3_result\""
+	fi
+
+	# Remove the download folder if delete option is given
+	if $delete
+	then
+		rm -rf "$download_dir"
+	fi
+
+	echo "Successfully removed download $removed_gid"
+elif [ "$1" == "status" ]
+then
+	post_data=$(rpc-post-data "aria2.getGlobalStat")
+	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+	echo "$resp"
 fi
 
