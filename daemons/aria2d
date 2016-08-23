@@ -22,12 +22,11 @@ start)
 	;;
 stop)
 	echo -n "Stopping aria2c daemon"
-	start-stop-daemon --stop --oknodo --chuid "root" --exec "$(which aria2c)"
+	start-stop-daemon --stop --oknodo --chuid "root" --retry 3 --exec "$(which aria2c)"
 	RETVAL=$?
 	;;
 restart)
 	stop
-	sleep 2
 	start
 	;;
 *)
