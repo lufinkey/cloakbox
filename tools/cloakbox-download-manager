@@ -74,16 +74,16 @@ then
 	options_type=$(echo "$options" | jq -r "type")
 	if [ "$options_type" != "object" ]
 	then
-		>&2 echo "options must be a json object type"
+		>&2 echo "options must be a json object"
 		#TODO show usage
 		exit $EXITCODE_BAD_ARGS
 	fi
 
 	# Create a unique folder to store the download
-	foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 32)
+	foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
 	while [ -d "$DOWNLOADS_ROOT/$foldername" ]
 	do
-		foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 32)
+		foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
 	done
 	mkdir -p "$DOWNLOADS_ROOT/$foldername"
 
@@ -270,6 +270,7 @@ then
 	fi
 
 	echo "done"
+# TODO removeall and list subcommands
 elif [ "$1" == "status" ]
 then
 	# Read arguments
@@ -384,6 +385,7 @@ then
 			result_counter=$(($result_counter+1))
 		done
 	else
+		# TODO add manual property filtering
 		if [ $property_count -gt 0 ]
 		then
 			>&2 echo "properties can only be specified if a GID is specified"
