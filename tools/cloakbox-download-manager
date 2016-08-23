@@ -278,41 +278,25 @@ then
 		gid="$2"
 		escaped_gid=$(json-escape "$gid")
 		post_data=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
-		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-		if [ -z "$resp" ]
-		then
-			>&2 echo "an unknown error occurred"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-		result_obj=$(echo "$resp" | jq ".result")
-		if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
-		then
-			>&2 echo "an unknown error occured"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-
-		# Output status
-		output=$(output-result "$result_obj")
-		echo "$output"
 	else
 		# Request global status
 		post_data=$(rpc-post-data "aria2.getGlobalStat")
-		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-		if [ -z "$resp" ]
-		then
-			>&2 echo "an unknown error occurred"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-		result_obj=$(echo "$resp" | jq ".result")
-		if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
-		then
-			>&2 echo "an unknown error occured"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-
-		# Output global status
-		output=$(output-result "$result_obj")
-		echo "$output"
 	fi
+	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+	if [ -z "$resp" ]
+	then
+		>&2 echo "an unknown error occurred"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+	result_obj=$(echo "$resp" | jq ".result")
+	if [ "$result_obj" == "null" ]
+	then
+		>&2 echo "an unknown error occured"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+
+	# Output status
+	output=$(output-result "$result_obj")
+	echo "$output"
 fi
 
