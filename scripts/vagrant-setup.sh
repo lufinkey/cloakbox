@@ -71,14 +71,21 @@ rpc-listen-all=false
 rpc-save-upload-metadata=true
 max-download-limit=200K
 save-session=/etc/aria2/aria2d_queue
+force-save=true
 input-file=/etc/aria2/aria2d_queue
 log=/var/log/aria2d.log
 EOF
 	})
 	sudo mkdir -p "/etc/aria2"
-	sudo touch "/var/log/aria2d.log"
+	if [ ! -f "/var/log/aria2d.log" ]
+	then
+		sudo touch "/var/log/aria2d.log"
+	fi
 	sudo echo "$aria2_prefs" > "/etc/aria2/aria2d.conf"
-	sudo touch "/etc/aria2/aria2d_queue"
+	if [ ! -f "/etc/aria2/aria2d_queue" ]
+	then
+		sudo touch "/etc/aria2/aria2d_queue"
+	fi
 
 	sleep 2
 	sudo service aria2d start
