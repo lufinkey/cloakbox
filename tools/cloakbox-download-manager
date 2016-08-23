@@ -272,31 +272,142 @@ then
 	echo "done"
 elif [ "$1" == "status" ]
 then
-	if [ -n "$2" ]
+	# Read arguments
+	gids=()
+	properties=()
+	arg_counter=2
+	while [ $arg_counter -le $# ]
+	do
+		arg=${!arg_counter}
+		if [ "$arg" == "-i" ] || [ "$arg" == "--include" ]
+		then
+			arg_counter=$(($arg_counter+1))
+			val=${!arg_counter}
+			if [ -z "$val" ]
+			then
+				>&2 echo "$arg argument requires a value"
+				exit $EXITCODE_BAD_ARGS
+			fi
+			properties+=("$val")
+		elif [[ "$arg" =~ ^--include=(.*)$ ]]
+		then
+			val=${BASH_REMATCH[1]}
+			if [ -z "$val" ]
+			then
+				>&2 echo "--include argument requires a value"
+				exit $EXITCODE_BAD_ARGS
+			fi
+			properties+=("$val")
+		else
+			if [[ "$arg" =~ ^- ]]
+			then
+				>&2 echo "unrecognized argument $arg"
+				exit $EXITCODE_BAD_ARGS
+			else
+				gids+=("$arg")
+			fi
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
+
+	gid_count=${#gids[@]}
+	property_count=${#properties[@]}
+	if [ "$gid_count" -gt 0 ]
 	then
-		# Request status for single download
-		gid="$2"
-		escaped_gid=$(json-escape "$gid")
-		post_data=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
+		# Request status for one or more downloads
+		gid_counter=0
+		post_params="["
+		while [ $gid_counter -lt $gid_count ]
+		do
+			if [ $gid_counter -ne 0 ]
+			then
+				post_params="$post_params,"
+			fi
+			gid=${gids[$gid_counter]}
+			escaped_gid=$(json-escape "$gid")
+			post_params="$post_params{\"methodName\":\"aria2.tellStatus\",\"params\":[\"$escaped_gid\""
+			if [ $property_count -gt 0 ]
+			then
+				post_params="$post_params,["
+				property_counter=0
+				while [ $property_counter -lt $property_count ]
+				do
+					if [ $property_counter -ne 0 ]
+					then
+						post_params="$post_params,"
+					fi
+					property=${properties[$property_counter]}
+					escaped_property=$(json-escape "$property")
+					post_params="$post_params\"$escaped_property\""
+					property_counter=$(($property_counter+1))
+				done
+				post_params="$post_params]"
+			fi
+			post_params="$post_params]}"
+			gid_counter=$(($gid_counter+1))
+		done
+		post_params="$post_params]"
+		post_data=$(rpc-post-data "system.multicall" "$post_params")
+		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+		if [ -z "$resp" ]
+		then
+			>&2 echo "an unknown error occurred"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+		result_obj=$(echo "$resp" | jq ".result")
+		if [ "$result_obj" == "null" ]
+		then
+			>&2 echo "an unknown error occured"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+		
+		# Output each GID's status
+		result_length=$(echo "$result_obj" | jq "length")
+		result_counter=0
+		while [ $result_counter -lt $result_length ]
+		do
+			gid=${gids[$result_counter]}
+			single_result_obj=$(echo "$result_obj" | jq ".[$result_counter]")
+			single_result_type=$(echo "$single_result_obj" | jq -r "type")
+			if [ "$single_result_type" == "array" ]
+			then
+				single_result_obj=$(echo "$single_result_obj" | jq ".[0]")
+			fi
+			single_result_obj=$(echo "$single_result_obj" | jq "del(.gid)")
+			echo "gid: $gid"
+			output=$(output-result "$single_result_obj")
+			if [ -n "$output" ]
+			then
+				echo "$output"
+			fi
+			echo ""
+			result_counter=$(($result_counter+1))
+		done
 	else
+		if [ $property_count -gt 0 ]
+		then
+			>&2 echo "properties can only be specified if a GID is specified"
+			exit $EXITCODE_BAD_ARGS
+		fi
+
 		# Request global status
 		post_data=$(rpc-post-data "aria2.getGlobalStat")
-	fi
-	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-	if [ -z "$resp" ]
-	then
-		>&2 echo "an unknown error occurred"
-		exit $EXITCODE_UNKNOWN_ERROR
-	fi
-	result_obj=$(echo "$resp" | jq ".result")
-	if [ "$result_obj" == "null" ]
-	then
-		>&2 echo "an unknown error occured"
-		exit $EXITCODE_UNKNOWN_ERROR
-	fi
+		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+		if [ -z "$resp" ]
+		then
+			>&2 echo "an unknown error occurred"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
+		result_obj=$(echo "$resp" | jq ".result")
+		if [ "$result_obj" == "null" ]
+		then
+			>&2 echo "an unknown error occured"
+			exit $EXITCODE_UNKNOWN_ERROR
+		fi
 
-	# Output status
-	output=$(output-result "$result_obj")
-	echo "$output"
+		# Output status
+		output=$(output-result "$result_obj")
+		echo "$output"
+	fi
 fi
 
