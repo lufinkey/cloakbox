@@ -179,7 +179,11 @@ then
 		then
 			delete=true
 		else
-			if [ -z "$gid" ]
+			if [[ "$arg" =~ ^- ]]
+			then
+				>&2 echo "unrecognized argument $arg"
+				exit $EXITCODE_BAD_ARGS
+			elif [ -z "$gid" ]
 			then
 				gid="$arg"
 			else
@@ -202,59 +206,61 @@ then
 	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
 	if [ -z "$resp" ]
 	then
-		>&2 echo "an unknown error occured"
-		# TODO show usage
-		exit $EXITCODE_UNKNOWN_ERROR
+		>&2 echo "no download exists with the gid $gid"
+		exit $EXITCODE_DOWNLOAD_NOT_FOUND
 	fi
 	result_obj=$(echo "$resp" | jq ".result")
 	if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
 	then
 		rm -rf "$DOWNLOADS_ROOT/$foldername"
 		>&2 echo "an unknown error occured"
-		# TODO show usage
 		exit $EXITCODE_UNKNOWN_ERROR
 	fi
 	download_dir=$(echo "$resp" | jq -r ".result.dir")
-
-	# Make "pause" request
-	post_data2=$(rpc-post-data "aria2.pause" "\"$escaped_gid\"")
-	resp2=$(wget -q -O - "$RPC_URL" --post-data="$post_data2")
-	paused_gid=$(echo "$resp2" | jq -r ".result")
-	if [ -z "$paused_gid" ] || [ "$paused_gid" == "null" ]
-	then
-		>&2 echo "aria2 could not find the download"
-		exit $EXITCODE_DOWNLOAD_NOT_FOUND
-	fi
-	echo "paused download $paused_gid"
+	status=$(echo "$resp" | jq -r ".result.status")
 
 	# Make "remove" request
-	post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
-	resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
-	removed_gid=$(echo "$resp3" | jq -r ".result")
-	if [ -z "$removed_gid" ] || [ "$removed_gid" == "null" ]
+	if [ "$status" != "removed" ]
 	then
-		>&2 echo "aria2 could not find the download"
-		exit $EXITCODE_DOWNLOAD_NOT_FOUND
+		post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
+		resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
+		removed_gid=$(echo "$resp3" | jq -r ".result")
+		if [ -z "$removed_gid" ] || [ "$removed_gid" == "null" ]
+		then
+			>&2 echo "aria2 could not find the download"
+			exit $EXITCODE_DOWNLOAD_NOT_FOUND
+		fi
+		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+		status=$(echo "$resp" | jq -r ".result.status")
+		check_count=0
+		while [ "$status" != "removed" ] && [ -n "$status" ] && [ "$status" != "null" ]
+		do
+			if [ "$check_count" -ge "5" ]
+			then
+				echo "removal is taking too long... force removing..."
+				forceremove_post_data=$(rpc-post-data "aria2.forceRemove" "\"$escaped_gid\"")
+				forceremove_resp=$(wget -q -O - "$RPC_URL" --post-data="$forceremove_post_data")
+			fi
+			sleep 0.2
+			resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+			status=$(echo "$resp" | jq -r ".result.status")
+			check_count=$(($check_count+1))
+		done
+		echo "removed download $removed_gid"
 	fi
-	echo "removed download $removed_gid"
 
-	# Remove the download from aria2
-	removal_fail_counter=0
-	removed_download_result=false
-	while [ "$removal_fail_counter" -lt 5 ] && ! $removed_download_result
-	do
+	# Get the status again to make sure the download result hasn't already been removed
+	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+	if [ -n "$resp" ]
+	then
+		# Remove the download status
 		post_data4=$(rpc-post-data "aria2.removeDownloadResult" \"$escaped_gid\")
 		resp4=$(wget -q -O - "$RPC_URL" --post-data="$post_data4")
 		resp4_result=$(echo "$resp4" | jq -r ".result")
-		if [ "$resp4_result" == "OK" ]
+		if [ "$resp4_result" != "OK" ]
 		then
-			removed_download_result=true
+			echo "aria2 couldn't remove the download result"
 		fi
-		sleep 0.2
-	done
-	if ! $removed_download_result
-	then
-		echo "aria2 couldn't remove the download result"
 	fi
 
 	# Remove the download folder if delete option is given
@@ -263,7 +269,7 @@ then
 		rm -rf "$download_dir"
 	fi
 
-	echo "Finished removing download $removed_gid"
+	echo "done"
 elif [ "$1" == "status" ]
 then
 	if [ -n "$2" ]
