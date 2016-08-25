@@ -27,7 +27,7 @@ function rpc-post-data # params
 
 function output-result # result, prefix
 {
-	result="$1"
+	result=$(echo "$1" | jq "del(.dir)")
 	prefix="$2"
 	keys=$(echo "$result" | jq "keys")
 	keys_length=$(echo "$keys" | jq "length")
@@ -194,8 +194,6 @@ then
 
 	echo "Download added successfully"
 	echo "GID: $gid"
-	echo "path: $DOWNLOADS_ROOT/$foldername"
-	echo "status: $status"
 elif [ "$1" == "remove" ]
 then
 	# Read the arguments
