@@ -120,6 +120,7 @@ then
 	# Make the request
 	escaped_folderpath=$(json-escape "$DOWNLOADS_ROOT/$foldername")
 	options=$(echo "$options" | jq ".dir = \"$escaped_folderpath\"")
+	options=$(echo "$options" | jq ".gid = \"$foldername\"")
 	if [[ "$url" =~ ^[0-9a-zA-Z_\-]+:\/\/.* ]] || [[ "$url" =~ magnet:\?xt=.* ]]
 	then
 		# URL or magnet link
