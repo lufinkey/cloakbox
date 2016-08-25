@@ -19,13 +19,13 @@ function json-escape
 	echo "${json_str,'"','\"'}"
 }
 
-function rpc-post-data
+function rpc-post-data # params
 {
 	escaped_method=$(json-escape "$1")
 	echo "{\"jsonrpc\":\"2.0\", \"id\":\"$prog_name\", \"method\":\"$escaped_method\", \"params\":[$2]}"
 }
 
-function output-result
+function output-result # result, prefix
 {
 	result="$1"
 	prefix="$2"
@@ -51,6 +51,36 @@ function output-result
 			echo "$sub_values"
 		fi
 		key_counter=$(($key_counter+1))
+	done
+}
+
+function list-downloads # method, params
+{
+	# Request downloads
+	post_data=$(rpc-post-data "$1" "$2")
+	resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+
+	# Output downloads
+	results=$(echo "$resp" | jq ".result")
+	results_count=$(echo "$results" | jq "length")
+	if [ -z "$results_count" ]
+	then
+		results_count=0
+	fi
+	result_counter=0
+	while [ $result_counter -lt $results_count ]
+	do
+		single_result_obj=$(echo "$results" | jq ".[$result_counter]")
+		gid=$(echo "$single_result_obj" | jq -r ".gid")
+		single_result_obj=$(echo "$single_result_obj" | jq "del(.gid)")
+		echo "gid: $gid"
+		output=$(output-result "$single_result_obj")
+		if [ -n "$output" ]
+		then
+			echo "$output"
+		fi
+		echo ""
+		result_counter=$(($result_counter+1))
 	done
 }
 
@@ -220,7 +250,7 @@ then
 	status=$(echo "$resp" | jq -r ".result.status")
 
 	# Make "remove" request
-	if [ "$status" != "removed" ]
+	if [ "$status" != "removed" ] && [ "$status" != "complete" ] && [ "$status" != "error" ]
 	then
 		post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
 		resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
@@ -270,7 +300,110 @@ then
 	fi
 
 	echo "done"
-# TODO removeall and list subcommands
+# TODO removeall subcommand
+elif [ "$1" == "list" ]
+then
+	# Read the arguments
+	properties=()
+	arg_counter=3
+	while [ $arg_counter -le $# ]
+	do
+		arg=${!arg_counter}
+		if [ "$arg" == "-i" ] || [ "$arg" == "--include" ]
+		then
+			arg_counter=$(($arg_counter+1))
+			val=${!arg_counter}
+			if [ -z "$val" ]
+			then
+				>&2 echo "$arg argument requires a value"
+				exit $EXITCODE_BAD_ARGS
+			fi
+			properties+=("$val")
+		elif [[ "$arg" =~ ^--include=(.*)$ ]]
+		then
+			val=${BASH_REMATCH[1]}
+			if [ -z "$val" ]
+			then
+				>&2 echo "--include argument requires a value"
+				exit $EXITCODE_BAD_ARGS
+			fi
+			properties+=("$val")
+		else
+			>&2 echo "unrecognized argument $arg"
+			exit $EXITCODE_BAD_ARGS
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
+
+	# Make sure either properties is empty or gid is specified
+	if [ ${#properties[@]} -gt 0 ]
+	then
+		has_gid=false
+		for property in "$properties"
+		do
+			if [ "$property" == "gid" ]
+			then
+				has_gid=true
+				break
+			fi
+		done
+		if ! $has_gid
+		then
+			properties+=("gid")
+		fi
+	fi
+
+	# Request counts of downloads
+	stat_post_data=$(rpc-post-data "aria2.getGlobalStat")
+	stat_resp=$(wget -q -O - "$RPC_URL" --post-data="$stat_post_data")
+	if [ -z "$stat_resp" ]
+	then
+		>&2 echo "an unknown error occurred"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+	result_obj=$(echo "$stat_resp" | jq ".result")
+	if [ "$result_obj" == "null" ]
+	then
+		>&2 echo "an unknown error occured"
+		exit $EXITCODE_UNKNOWN_ERROR
+	fi
+	numActive=$(echo "$result_obj" | jq -r ".numActive")
+	numWaiting=$(echo "$result_obj" | jq -r ".numWaiting")
+	numStopped=$(echo "$result_obj" | jq -r ".numStopped")
+
+	# Build keys list
+	post_params=
+	property_counter=0
+	property_count=${#properties[@]}
+	while [ $property_counter -lt $property_count ]
+	do
+		if [ $property_counter -ne 0 ]
+		then
+			post_params="$post_params,"
+		fi
+		property=${properties[$property_counter]}
+		escaped_property=$(json-escape "$property")
+		post_params="$post_params\"$escaped_property\""
+		property_counter=$(($property_counter+1))
+	done
+
+	# Active downloads
+	if [ "$2" == "all" ] || [ "$2" == "active" ] || [ -z "$2" ]
+	then
+		list-downloads "aria2.tellActive" "$post_params"
+	fi
+
+	# Waiting downloads
+	if [ "$2" == "all" ] || [ "$2" == "waiting" ] || [ -z "$2" ]
+	then
+		list-downloads "aria2.tellWaiting" "0, $numWaiting, [$post_params]"
+	fi
+
+	# Stopped downloads
+	if [ "$2" == "all" ] || [ "$2" == "stopped" ] || [ -z "$2" ]
+	then
+		list-downloads "aria2.tellStopped" "0, $numStopped, [$post_params]"
+	fi
 elif [ "$1" == "status" ]
 then
 	# Read arguments
@@ -361,7 +494,7 @@ then
 			>&2 echo "an unknown error occured"
 			exit $EXITCODE_UNKNOWN_ERROR
 		fi
-		
+
 		# Output each GID's status
 		result_length=$(echo "$result_obj" | jq "length")
 		result_counter=0
