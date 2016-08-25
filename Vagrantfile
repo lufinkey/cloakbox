@@ -16,9 +16,9 @@ Vagrant.configure(2) do |config|
 
 	config.vm.synced_folder "./shared", "/shared", type: "sshfs"
 
-	config.vm.provision "file", source: "tools", destination: "/tmp/tools"
-	config.vm.provision "file", source: "daemons", destination: "/tmp/daemons"
+	config.vm.provision "file", source: "provision/tools", destination: "/tmp/tools"
+	config.vm.provision "file", source: "provision/daemons", destination: "/tmp/daemons"
 
-	config.vm.provision "shell", path: "scripts/vagrant-setup.sh"
+	config.vm.provision "shell", path: "provision/scripts/vagrant-setup.sh"
 end
 
