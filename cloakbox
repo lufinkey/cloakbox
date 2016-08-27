@@ -62,12 +62,7 @@ EOF
 elif [ "$1" == "destroy" ]
 then
 	cd "$base_dir"
-	# the vagrant box won't actually destroy if the shared folders aren't there
-	mkdir -p "shared"
-	mkdir -p "openvpn"
 	vagrant destroy -f
-	rm -rf shared
-	rm -f *.log
 	# TODO add a flag for also deleting the .vagrant folder
 fi
 
