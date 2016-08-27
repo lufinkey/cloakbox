@@ -16,7 +16,7 @@ readonly RPC_URL="http://localhost:6800/jsonrpc"
 function json-escape
 {
 	json_str="$1"
-	echo "${json_str,'"','\"'}"
+	echo "${json_str//'"'/'\"'}"
 }
 
 function rpc-post-data # params
