@@ -54,5 +54,5 @@ echo "$pia_user" > "openvpn/pia-auth.txt"
 echo "$pia_pass" >> "openvpn/pia-auth.txt"
 cp -f -t "openvpn" tools/cache/pia-setup/*.pem tools/cache/pia-setup/*.crt
 cat "tools/cache/pia-setup/$selected_option" | sed -e 's/^auth-user-pass.*//' > "openvpn/openvpn.conf"
-echo 'auth-user-pass "pia-auth.txt"' >> "openvpn/openvpn.conf"
+echo 'auth-user-pass pia-auth.txt' >> 'openvpn/openvpn.conf'
 
