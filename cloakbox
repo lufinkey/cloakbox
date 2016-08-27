@@ -1,5 +1,7 @@
 #!/bin/bash
 
+readonly EXITCODE_BAD_ARGS=28
+
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 prog_name=cloakbox
 
@@ -67,8 +69,28 @@ EOF
 	vagrant up
 elif [ "$1" == "destroy" ]
 then
+	clean=false
+	arg_counter=2
+	while [ $arg_counter -lt $# ]
+	do
+		arg=${!arg_counter}
+		if [ "$arg" == "-c" ] || [ "$arg" == "--clean" ]
+		then
+			clean=true
+		else
+			>&2 echo "unrecognized argument $arg"
+			exit $EXITCODE_BAD_ARGS
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
+
 	cd "$base_dir"
 	vagrant destroy -f
-	# TODO add a flag for also deleting the .vagrant folder
+	if $clean
+	then
+		rm -rf .vagrant
+		rm -rf shared/*
+		rm -rf *.log
+	fi
 fi
 
