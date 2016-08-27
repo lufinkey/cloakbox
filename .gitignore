@@ -2,7 +2,5 @@
 /shared/
 .vagrant
 /tools/cache/
-/openvpn/*.conf
-/openvpn/*.crt
-/openvpn/*.pem
-/openvpn/*.txt
+/openvpn/*
+!/openvpn/PUT_OPENVPN_CONFIG_HERE

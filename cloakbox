@@ -3,27 +3,29 @@
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 prog_name=cloakbox
 
-if [ "$1" == "setup" ]
-then
-	cd "$base_dir"
-
-	mkdir -p "shared/openvpn"
+function setup
+{
+	mkdir -p "openvpn"
 	mkdir -p "shared/.$prog_name"
 	mkdir -p "shared/downloads"
-	rm -rf "shared/.$prog_name/setup_done"
 
 	vagrant plugin install vagrant-vbguest
 	vagrant plugin install vagrant-sshfs
 
-	vagrant up --provision
-	vagrant halt
+	touch "shared/.$prog_name/setup_done"
+}
+
+if [ "$1" == "setup" ]
+then
+	cd "$base_dir"
+	setup
 elif [ "$1" == "start" ]
 then
-	if [ ! -f "$base_dir/shared/.$prog_name/setup_done" ]
-	then
-		"$0" setup
-	fi
 	cd "$base_dir"
+	if [ ! -f "shared/.$prog_name/setup_done" ]
+	then
+		setup
+	fi
 	vagrant up
 elif [ "$1" == "stop" ]
 then
@@ -31,12 +33,12 @@ then
 	vagrant halt
 elif [ "$1" == "updatevpn" ]
 then
-	if [ ! -f "$base_dir/shared/.$prog_name/setup_done" ]
+	cd "$base_dir"
+	if [ ! -f "shared/.$prog_name/setup_done" ]
 	then
-		"$0" setup
+		setup
 	fi
 	# TODO mutex lock this command
-	cd "$base_dir"
 	vagrant up
 	mkdir -p "shared/.$prog_name/tmp"
 	rm -rf "shared/.$prog_name/tmp/openvpn"
@@ -59,6 +61,10 @@ EOF
 	)
 	echo "setting up openvpn inside of cloakbox"
 	vagrant ssh -c "$cmds_to_run"
+	sleep 1
+	# Restart VM after updating openvpn settings
+	vagrant halt
+	vagrant up
 elif [ "$1" == "destroy" ]
 then
 	cd "$base_dir"
