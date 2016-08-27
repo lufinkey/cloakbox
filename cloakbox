@@ -7,43 +7,64 @@ if [ "$1" == "setup" ]
 then
 	cd "$base_dir"
 
-	read -p "enter your PIA username: " pia_user
-	read -s -p "enter your PIA password: " pia_pass
-	echo ""
-
-	mkdir -p "shared"
+	mkdir -p "shared/openvpn"
 	mkdir -p "shared/.$prog_name"
 	mkdir -p "shared/downloads"
 	rm -rf "shared/.$prog_name/setup_done"
+
 	vagrant plugin install vagrant-vbguest
 	vagrant plugin install vagrant-sshfs
-	mkdir -p "shared/.$prog_name/tmp"
-	echo "$pia_user" > "shared/.$prog_name/tmp/pia_credentials"
-	echo "$pia_pass" >> "shared/.$prog_name/tmp/pia_credentials"
+
 	vagrant up --provision
 	vagrant halt
-	rm -rf "shared/.$prog_name/tmp/pia_credentials"
 elif [ "$1" == "start" ]
 then
-	cd "$base_dir"
-	if [ ! -f "shared/.$prog_name/setup_done" ]
+	if [ ! -f "$base_dir/shared/.$prog_name/setup_done" ]
 	then
 		"$0" setup
 	fi
+	cd "$base_dir"
 	vagrant up
 elif [ "$1" == "stop" ]
 then
 	cd "$base_dir"
 	vagrant halt
+elif [ "$1" == "updatevpn" ]
+then
+	if [ ! -f "$base_dir/shared/.$prog_name/setup_done" ]
+	then
+		"$0" setup
+	fi
+	# TODO mutex lock this command
+	cd "$base_dir"
+	vagrant up
+	mkdir -p "shared/.$prog_name/tmp"
+	rm -rf "shared/.$prog_name/tmp/openvpn"
+	cp -r "openvpn" "shared/.$prog_name/tmp/openvpn"
+	cmds_to_run=$(cat <<EOF
+sudo service openvpn stop
+cd /etc/openvpn
+files=(*)
+for file in "$files"
+do
+	if [ "$file" != "update-resolv-conf" ]
+	then
+		sudo rm -rf "$file"
+	fi
+done
+sudo cp -n -t /etc/openvpn/ /shared/.$prog_name/tmp/openvpn/*
+rm -rf /shared/.$prog_name/tmp/openvpn
+sudo service openvpn start
+EOF
+	)
+	echo "setting up openvpn inside of cloakbox"
+	vagrant ssh -c "$cmds_to_run"
 elif [ "$1" == "destroy" ]
 then
 	cd "$base_dir"
-	# TODO maybe prompt before destroying? I dunno
-	if [ ! -d "shared" ]
-	then
-		# the vagrant box won't actually destroy if the shared folder isn't there
-		mkdir -p "shared"
-	fi
+	# the vagrant box won't actually destroy if the shared folders aren't there
+	mkdir -p "shared"
+	mkdir -p "openvpn"
 	vagrant destroy -f
 	rm -rf shared
 	rm -f *.log

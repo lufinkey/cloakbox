@@ -1,3 +1,4 @@
 virtualbox
 vagrant
 sftp-server
+unzip

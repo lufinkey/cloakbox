@@ -14,7 +14,7 @@ Vagrant.configure(2) do |config|
 
 	config.ssh.insert_key = true
 
-	config.vm.synced_folder "./shared", "/shared", type: "sshfs"
+	config.vm.synced_folder "./shared", "/shared", type: "sshfs", create: true
 
 	config.vm.provision "file", source: "provision/tools", destination: "/tmp/tools"
 	config.vm.provision "file", source: "provision/daemons", destination: "/tmp/daemons"

@@ -1,4 +1,8 @@
 *.log
 /shared/
 .vagrant
-
+/tools/cache/
+/openvpn/*.conf
+/openvpn/*.crt
+/openvpn/*.pem
+/openvpn/*.txt
