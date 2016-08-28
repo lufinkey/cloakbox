@@ -60,6 +60,12 @@ elif [ "$1" == "stop" ]
 then
 	cd "$base_dir"
 	vagrant halt
+elif [ "$1" == "ip" ]
+then
+	cd "$base_dir"
+	vagrant ssh -c "whatismyip" -- -q
+	retval=$?
+	exit $retval
 elif [ "$1" == "download" ]
 then
 	if [ "$2" == "add" ]
@@ -126,6 +132,9 @@ then
 	then
 		setup
 	fi
+	current_ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
+	mkdir -p "shared/.$prog_name"
+	echo "$current_ip" > "shared/.$prog_name/ip"
 	# TODO mutex lock this command
 	vagrant up
 	mkdir -p "shared/.$prog_name/tmp"

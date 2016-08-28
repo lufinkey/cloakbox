@@ -84,6 +84,17 @@ function list-downloads # method, params
 	done
 }
 
+# Start aria2d if connected to VPN
+if [ -z "$(pgrep aria2d)" ]
+then
+	current_ip=$(whatismyip)
+	actual_ip=$(cat "/shared/.$prog_name/ip")
+	if [ -n "$actual_ip" ] && [ "$actual_ip" != "$current_ip" ] && [ -n "$(pgrep openvpn)" ]
+	then
+		sudo service aria2d start
+	fi
+fi
+
 # TODO add better error handling when they finally decide to add it to aria2
 
 if [ "$1" == "add" ]
