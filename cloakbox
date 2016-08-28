@@ -1,6 +1,7 @@
 #!/bin/bash
 
 readonly EXITCODE_BAD_ARGS=28
+readonly EXITCODE_FILE_NOT_FOUND=101
 
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 prog_name=cloakbox
@@ -73,6 +74,11 @@ then
 		then
 			filename=
 		else
+			if [ ! -f "$url" ]
+			then
+				>&2 echo "file $url does not exist"
+				exit $EXITCODE_FILE_NOT_FOUND
+			fi
 			filename="download_"$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
 			cp "$url" "$base_dir/shared/.$prog_name/tmp/$filename"
 			url="/shared/.$prog_name/tmp/$filename"
