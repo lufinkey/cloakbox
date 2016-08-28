@@ -17,6 +17,32 @@ function setup
 	touch "shared/.$prog_name/setup_done"
 }
 
+function escape-string
+{
+	str="$1"
+	escaped_str=${str//"'"/"'\"'\"'"}
+	echo "'${escaped_str}'"
+}
+
+function build-command-string
+{
+	cmd=
+	arg_counter=1
+	while [ $arg_counter -le $# ]
+	do
+		arg=${!arg_counter}
+		escaped_arg=$(escape-string "$arg")
+		if [ -z "$cmd" ]
+		then
+			cmd="$escaped_arg"
+		else
+			cmd="$cmd $escaped_arg"
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
+	echo "$cmd"
+}
+
 if [ "$1" == "setup" ]
 then
 	cd "$base_dir"
@@ -33,6 +59,60 @@ elif [ "$1" == "stop" ]
 then
 	cd "$base_dir"
 	vagrant halt
+elif [ "$1" == "download" ]
+then
+	if [ "$2" == "add" ]
+	then
+		url="$3"
+		if [ -z "$url" ]
+		then
+			>&2 echo "add requires a torrent path, URL, or magnet link to be given"
+			# TODO show usage
+			exit $EXITCODE_BAD_ARGS
+		elif [[ "$url" =~ ^[0-9a-zA-Z_\-]+:\/\/.* ]] || [[ "$url" =~ magnet:\?xt=.* ]]
+		then
+			filename=
+		else
+			filename="download_"$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
+			cp "$url" "$base_dir/shared/.$prog_name/tmp/$filename"
+			url="/shared/.$prog_name/tmp/$filename"
+		fi
+		cd "$base_dir"
+		args=$(build-command-string "$url")
+		vagrant ssh -c "cloakbox-download-manager add $args" -- -q
+		retval=$?
+		if [ -n "$filename" ]
+		then
+			rm -rf "shared/.$prog_name/tmp/$filename"
+		fi
+		exit $retval
+	elif [ "$2" == "remove" ] || [ "$2" == "list" ] || [ "$2" == "status" ]
+	then
+		subcommand="$2"
+		if [ $# -le 2 ]
+		then
+			shift
+			shift
+			args=
+		else
+			shift
+			shift
+			args=$(build-command-string "$@")
+		fi
+		vagrant ssh -c "cloakbox-download-manager $subcommand $args" -- -q
+		retval=$?
+		exit $retval
+	else
+		if [ -z "$2" ]
+		then
+			# TODO echo usage
+			echo "you must give a subcommand"
+			exit $EXITCODE_BAD_ARGS
+		else
+			echo "unrecognized subcommand $2"
+			exit $EXITCODE_BAD_ARGS
+		fi
+	fi
 elif [ "$1" == "updatevpn" ]
 then
 	cd "$base_dir"
@@ -71,7 +151,7 @@ elif [ "$1" == "destroy" ]
 then
 	clean=false
 	arg_counter=2
-	while [ $arg_counter -lt $# ]
+	while [ $arg_counter -le $# ]
 	do
 		arg=${!arg_counter}
 		if [ "$arg" == "-c" ] || [ "$arg" == "--clean" ]

@@ -303,7 +303,7 @@ then
 elif [ "$1" == "list" ]
 then
 	# Read the arguments
-	if [ "$2" != "all" ] && [ "$2" != "active" ] && [ "$2" != "waiting" ] && [ "$2" != "stopped" ]
+	if [ "$2" != "all" ] && [ "$2" != "active" ] && [ "$2" != "waiting" ] && [ "$2" != "stopped" ] [ -n "$2" ]
 	then
 		>&2 echo "unknown download state $2"
 		exit $EXITCODE_BAD_ARGS
