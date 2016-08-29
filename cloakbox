@@ -56,10 +56,20 @@ then
 		setup
 	fi
 	vagrant up
+	retval=$?
+	exit $retval
 elif [ "$1" == "stop" ]
 then
 	cd "$base_dir"
 	vagrant halt
+	retval=$?
+	exit $retval
+elif [ "$1" == "ssh" ]
+then
+	cd "$base_dir"
+	vagrant ssh
+	retval=$?
+	exit $retval
 elif [ "$1" == "ip" ]
 then
 	cd "$base_dir"
@@ -158,10 +168,12 @@ EOF
 	)
 	echo "setting up openvpn inside of cloakbox"
 	vagrant ssh -c "$cmds_to_run"
+	retval=$?
 	sleep 1
 	# Restart VM after updating openvpn settings
 	vagrant halt
 	vagrant up
+	exit $retval
 elif [ "$1" == "destroy" ]
 then
 	clean=false
@@ -181,11 +193,22 @@ then
 
 	cd "$base_dir"
 	vagrant destroy -f
+	retval=$?
 	if $clean
 	then
 		rm -rf .vagrant
 		rm -rf shared/*
 		rm -rf *.log
+	fi
+	exit $retval
+else
+	if [ -z "$1" ]
+	then
+		>&2 echo "you must give a subcommand"
+		exit $EXITCODE_BAD_ARGS
+	else
+		>& echo "unrecognized subcommand $1"
+		exit $EXITCODE_BAD_ARGS
 	fi
 fi
 
