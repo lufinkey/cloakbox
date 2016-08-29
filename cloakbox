@@ -135,8 +135,22 @@ then
 			exit $EXITCODE_BAD_ARGS
 		fi
 	fi
-elif [ "$1" == "updatevpn" ]
+elif [ "$1" == "updatesettings" ]
 then
+	reboot=false
+	arg_counter=2
+	while [ $arg_counter -le $# ]
+	do
+		arg=${!arg_counter}
+		if [ "$arg" == "-r" ] || [ "$arg" == "--reboot" ]
+		then
+			reboot=true
+		else
+			>&2 echo "unrecognized argument $arg"
+			exit $EXITCODE_BAD_ARGS
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
 	cd "$base_dir"
 	if [ ! -f "shared/.$prog_name/setup_done" ]
 	then
@@ -146,7 +160,7 @@ then
 	mkdir -p "shared/.$prog_name"
 	echo "$current_ip" > "shared/.$prog_name/ip"
 	# TODO mutex lock this command
-	vagrant up
+	vagrant up --provision
 	mkdir -p "shared/.$prog_name/tmp"
 	rm -rf "shared/.$prog_name/tmp/openvpn"
 	cp -r "openvpn" "shared/.$prog_name/tmp/openvpn"
@@ -167,12 +181,15 @@ sudo service openvpn start
 EOF
 	)
 	echo "setting up openvpn inside of cloakbox"
-	vagrant ssh -c "$cmds_to_run"
+	vagrant ssh -c "$cmds_to_run" -- -q
 	retval=$?
-	sleep 1
-	# Restart VM after updating openvpn settings
-	vagrant halt
-	vagrant up
+	if $reboot
+	then
+		sleep 1
+		# Restart VM after updating openvpn settings
+		vagrant halt
+		vagrant up
+	fi
 	exit $retval
 elif [ "$1" == "destroy" ]
 then
@@ -207,7 +224,7 @@ else
 		>&2 echo "you must give a subcommand"
 		exit $EXITCODE_BAD_ARGS
 	else
-		>& echo "unrecognized subcommand $1"
+		>&2 echo "unrecognized subcommand $1"
 		exit $EXITCODE_BAD_ARGS
 	fi
 fi
