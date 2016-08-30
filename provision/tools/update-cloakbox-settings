@@ -1,5 +1,7 @@
 #!/bin/bash
 
+prog_name=cloakbox
+
 echo "setting up openvpn settings"
 openvpn_prefs=$(
 	cat <<EOF
@@ -11,6 +13,7 @@ EOF
 echo "$openvpn_prefs" > /etc/default/openvpn
 
 echo "setting up aria2 settings"
+rpc_secret=$(cat "/shared/.$prog_name/secret")
 aria2_prefs=$(
 {
 	cat <<EOF
@@ -22,13 +25,15 @@ save-session-interval=60
 daemon=true
 enable-rpc=true
 rpc-listen-port=6800
-rpc-listen-all=false
+rpc-listen-all=true
 rpc-save-upload-metadata=true
 max-download-limit=200K
 save-session=/shared/downloads/download_state
 force-save=true
 input-file=/shared/downloads/download_state
 EOF
+	# TODO escape rpc secret string in conf
+	echo "rpc-secret=$rpc_secret"
 })
 mkdir -p "/etc/aria2"
 echo "$aria2_prefs" > "/etc/aria2/aria2d.conf"

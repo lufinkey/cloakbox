@@ -12,6 +12,8 @@ Vagrant.configure(2) do |config|
 		vb.memory = "2048"
 	end
 
+	config.vm.network "forwarded_port", guest: 6800, host: 6803, protocol: "tcp"
+
 	config.ssh.insert_key = true
 
 	config.vm.synced_folder "./shared", "/shared", type: "sshfs", create: true

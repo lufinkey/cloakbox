@@ -2,3 +2,4 @@ virtualbox
 vagrant
 sftp-server
 unzip
+jq
