@@ -24,6 +24,14 @@ function setup
 	touch "shared/.$prog_name/setup_done"
 }
 
+function escape-cmd-string
+{
+	str="$1"
+	escaped_str=$(echo "$str" | tr '\n' ' ')
+	escaped_str=${str//"'"/"'\"'\"'"}
+	echo "'${escaped_str}'"
+}
+
 if [ "$1" == "setup" ]
 then
 	cd "$base_dir"
@@ -344,13 +352,25 @@ then
 			fi
 		fi
 
+		retval=0
+
 		# Remove the download folder if delete option is given
 		if $delete
 		then
-			rm -rf "$base_dir$download_dir"
+			escaped_download_dir=$(escape-cmd-string "$download_dir")
+			vagrant ssh -c "rm -rf $escaped_download_dir" -- -q
+			retval=$?
+			if [ $retval -eq 0 ]
+			then
+				echo "deleted download $gid"
+			fi
 		fi
 
-		echo "done"
+		if [ $retval -eq 0 ]
+		then
+			echo "done"
+		fi
+		exit $retval
 	elif [ "$2" == "list" ]
 	then
 		# Read the arguments
