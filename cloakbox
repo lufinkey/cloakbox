@@ -12,6 +12,12 @@ readonly EXITCODE_DOWNLOAD_NOT_FOUND=104
 
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 
+function fullpath
+{
+	cd "$1"
+	echo "$PWD"
+}
+
 function setup
 {
 	mkdir -p "openvpn"
@@ -54,8 +60,9 @@ then
 	exit $retval
 elif [ "$1" == "ssh" ]
 then
-	cd "$base_dir"
-	vagrant ssh
+	export VAGRANT_CWD=$(fullpath "$base_dir")
+	shift
+	vagrant ssh "$@"
 	retval=$?
 	exit $retval
 elif [ "$1" == "ip" ]
