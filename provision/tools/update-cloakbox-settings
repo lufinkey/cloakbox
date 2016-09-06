@@ -5,12 +5,24 @@ prog_name=cloakbox
 echo "setting up openvpn settings"
 openvpn_prefs=$(
 	cat <<EOF
-AUTOSTART="all"
+AUTOSTART="none"
 OPTARGS=""
 OMIT_SENDSIGS=0
 EOF
 )
 echo "$openvpn_prefs" > /etc/default/openvpn
+(
+	cd /etc/openvpn
+	files=(*)
+	for file in "$files"
+	do
+		if [ "$file" != "update-resolv-conf" ]
+		then
+			rm -rf "$file"
+		fi
+	done
+	cp -n -t /etc/openvpn/ /shared/openvpn/*
+)
 
 echo "setting up aria2 settings"
 rpc_secret=$(cat "/shared/.$prog_name/secret")

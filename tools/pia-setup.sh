@@ -49,10 +49,15 @@ read -p "enter your PIA username: " pia_user
 read -s -p "enter your PIA password: " pia_pass
 echo ""
 
-mkdir -p "openvpn"
-echo "$pia_user" > "openvpn/pia-auth.txt"
-echo "$pia_pass" >> "openvpn/pia-auth.txt"
-cp -f -t "openvpn" tools/cache/pia-setup/*.pem tools/cache/pia-setup/*.crt
-cat "tools/cache/pia-setup/$selected_option" | sed -e 's/^auth-user-pass.*//' > "openvpn/openvpn.conf"
+mkdir -p "shared/openvpn"
+echo "$pia_user" > "shared/openvpn/pia-auth.txt"
+echo "$pia_pass" >> "shared/openvpn/pia-auth.txt"
+cp -f -t "shared/openvpn" tools/cache/pia-setup/*.pem tools/cache/pia-setup/*.crt
+openvpn_conf=$(cat "tools/cache/pia-setup/$selected_option" | sed -E -e 's/^auth-user-pass((\s+.*$)|$)//')
+openvpn_conf=$(echo "$openvpn_conf" | sed -E -e 's/^up((\s+.*$)|$)//')
+openvpn_conf=$(echo "$openvpn_conf" | sed -E -e 's/^down((\s+.*$)|$)//')
+echo "$openvpn_conf" > "shared/openvpn/openvpn.conf"
 echo 'auth-user-pass pia-auth.txt' >> 'openvpn/openvpn.conf'
+echo 'up /etc/openvpn/update-resolv-conf' >> 'openvpn/openvpn.conf'
+echo 'down /etc/openvpn/update-resolv-conf' >> 'openvpn/openvpn.conf'
 

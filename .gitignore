@@ -1,6 +1,5 @@
 *.log
-/shared/
+/shared/*
+!/shared/openvpn/PUT_OPENVPN_CONFIG_HERE
 .vagrant
 /tools/cache/
-/openvpn/*
-!/openvpn/PUT_OPENVPN_CONFIG_HERE
