@@ -23,10 +23,10 @@ sudo service openvpn stop
 rpc_secret=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
 sudo echo "$rpc_secret" > "/shared/.$prog_name/secret"
 
+sudo update-cloakbox-settings
+
 sudo systemctl enable openvpn@openvpn.service
 sudo systemctl start openvpn@openvpn.service
-
-sudo update-cloakbox-settings
 
 if [ ! -f "/shared/downloads/download_state" ]
 then

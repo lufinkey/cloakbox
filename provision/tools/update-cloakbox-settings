@@ -2,7 +2,9 @@
 
 prog_name=cloakbox
 
-echo "setting up openvpn settings"
+mkdir -p "/etc/cloakbox"
+
+echo "setting up openvpn"
 openvpn_prefs=$(
 	cat <<EOF
 AUTOSTART="none"
@@ -24,7 +26,7 @@ echo "$openvpn_prefs" > /etc/default/openvpn
 	cp -n -t /etc/openvpn/ /shared/openvpn/*
 )
 
-echo "setting up aria2 settings"
+echo "setting up aria2"
 rpc_secret=$(cat "/shared/.$prog_name/secret")
 aria2_prefs=$(
 {
