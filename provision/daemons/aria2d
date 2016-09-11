@@ -21,8 +21,13 @@ start)
 	RETVAL=$?
 	;;
 stop)
-	echo -n "Stopping aria2c daemon"
+	log_daemon_msg "Stopping aria2c daemon"
 	start-stop-daemon --stop --oknodo --chuid "root" --retry 3 --exec "$(which aria2c)"
+	RETVAL=$?
+	;;
+force-stop)
+	log_daemon "Forcibly stopping aria2c daemon"
+	start-stop-daemon --stop --oknodo --chuid "root" --signal 9 --exec "$(which aria2c)"
 	RETVAL=$?
 	;;
 restart)
@@ -30,7 +35,7 @@ restart)
 	start
 	;;
 *)
-	echo $"Usage: $0 {start|stop|restart|status}"
+	echo $"Usage: $0 {start|stop|force-stop|restart|status}"
 	RETVAL=1
 esac
 exit $RETVAL

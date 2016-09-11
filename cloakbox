@@ -373,11 +373,12 @@ then
 					fi
 				fi
 				post_data3=$(rpc-post-data "aria2.forceRemove" "\"$escaped_gid\"")
-				wget -q "$RPC_URL" --post-data="$post_data3"
+				wget -q -O - "$RPC_URL" --post-data="$post_data3" > /dev/null
 				post_data4=$(rpc-post-data "aria2.removeDownloadResult" "\"$escaped_gid\"")
-				wget -q "$RPC_URL" --post-data="$post_data4"
+				wget -q -O - "$RPC_URL" --post-data="$post_data4" > /dev/null
 				rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
-				return "$errorCode"
+				echo "$resp2"
+				return "$error_code"
 			fi
 
 			if $brief
@@ -493,7 +494,7 @@ then
 					status=$(echo "$resp" | jq -r ".result.status")
 					check_count=$(($check_count+1))
 				done
-				return "removed download $removed_gid"
+				echo "removed download $removed_gid"
 			fi
 
 			# Get the status again to make sure the download result hasn't already been removed
