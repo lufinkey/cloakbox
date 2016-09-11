@@ -35,7 +35,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 	Download manager for the cloakbox VM. This command takes several subcommands:
 
-	* **add** [--brief|-b] [--exit-on-failure|-e] [--torrent=\<PATH>|-t \<PATH>] [--metalink=\<PATH>|-m \<PATH>] [--url=\<URL>|-u \<URL>] TORRENT|METALINK|URL|MAGNET...
+	* **add** [--brief|-b] [--exit-on-failure|-e] [--torrent=\<PATH>|-t \<PATH>]... [--metalink=\<PATH>|-m \<PATH>]... [--url=\<URL>|-u \<URL>]... TORRENT|METALINK|URL|MAGNET...
 
 		Add a TORRENT, METALINK, URL, or MAGNET to the download manager and output a GID to identify the added download
 
@@ -71,7 +71,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 			Exit if a download fails to remove
 
-	* **list** CATEGORY [--include=\<PROPERTY>|-i \<PROPERTY>]
+	* **list** CATEGORY [--include=\<PROPERTY>|-i \<PROPERTY>]...
 
 		List all downloads and their properties in the specified CATEGORY. CATEGORY can be **all**, **active**, **waiting**, or **stopped**.
 
@@ -79,7 +79,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 			Output the specified PROPERTY for each download. If this argument is not used, the output for each download will list all of its properties. The gid of each download is always listed.
 
-	* **status** [\<GID>]... [--include=\<PROPERTY>|-i \<PROPERTY>]
+	* **status** [\<GID>]... [--include=\<PROPERTY>|-i \<PROPERTY>]...
 
 		List the statuses of the downloads with the specified GIDs. If no GID is specified, the global status is outputted
 
