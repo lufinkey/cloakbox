@@ -79,10 +79,17 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 			Output the specified PROPERTY for each download. If this argument is not used, the output for each download will list all of its properties. The gid of each download is always listed.
 
-	* **destroy** [--clean|-c]
+	* **status** [\<GID>]... [--include=\<PROPERTY>|-i \<PROPERTY>]
 
-		Destroy the cloakbox VM
+		List the statuses of the downloads with the specified GIDs. If no GID is specified, the global status is outputted
 
-		* **-c**, **--clean**
+		* **-i** PROPERTY, **--include**=PROPERTY
 
-			Delete all downloads, logs, and VM data
+			Output the specified property for each download. If this argument is not used, the output for each download will list all of its properties. This argument cannot be used if no GID is specified.
+
+* **destroy** [--clean|-c]
+	Destroy the cloakbox VM
+
+	* **-c**, **--clean**
+
+		Delete all downloads, logs, and VM data
