@@ -58,6 +58,6 @@ openvpn_conf=$(echo "$openvpn_conf" | sed -E -e 's/^[[:space:]]*up(([[:space:]]+
 openvpn_conf=$(echo "$openvpn_conf" | sed -E -e 's/^[[:space:]]*down(([[:space:]]+.*$)|$)//')
 echo "$openvpn_conf" > "shared/openvpn/openvpn.conf"
 echo 'auth-user-pass pia-auth.txt' >> 'shared/openvpn/openvpn.conf'
-echo 'up /etc/openvpn/update-resolv-conf' >> 'shared/openvpn/openvpn.conf'
-echo 'down /etc/openvpn/update-resolv-conf' >> 'shared/openvpn/openvpn.conf'
+echo 'up "/usr/local/bin/cloakbox-event-handler up"' >> 'shared/openvpn/openvpn.conf'
+echo 'down "/usr/local/bin/cloakbox-event-handler down"' >> 'shared/openvpn/openvpn.conf'
 

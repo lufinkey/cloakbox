@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [ "$1" == "up" ]
+then
+	/etc/openvpn/update-resolv-conf
+	service aria2d start
+elif [ "$1" == "down" ]
+then
+	service aria2d stop
+	/etc/openvpn/update-resolv-conf
+fi
+
