@@ -42,7 +42,6 @@ enable-rpc=true
 rpc-listen-port=6800
 rpc-listen-all=true
 rpc-save-upload-metadata=true
-max-download-limit=200K
 save-session=/shared/downloads/download_state
 force-save=true
 input-file=/shared/downloads/download_state
