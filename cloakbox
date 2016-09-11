@@ -76,6 +76,22 @@ then
 	vagrant ssh -c "whatismyip" -- -q
 	retval=$?
 	exit $retval
+elif [ "$1" == "update" ]
+then
+	full_update=false;
+	arg_counter=2
+	while [ $arg_counter -le $# ]
+	do
+		arg=${!arg_counter}
+		if [ "$arg" == "-f" ] || [ "$arg" == "--full" ]
+		then
+			full_update=true
+		else
+			>&2 echo "unrecognized argument $arg"
+			exit $EXITCODE_BAD_ARGS
+		fi
+		arg_counter=$(($arg_counter+1))
+	done
 elif [ "$1" == "download" ]
 then
 	readonly DOWNLOADS_ROOT="/shared/downloads"
@@ -167,112 +183,239 @@ then
 	if [ "$2" == "add" ]
 	then
 		# Read the arguments
-		url="$3"
-		if [ -z "$url" ]
+		brief=false
+		exitOnFail=false
+		inputs=()
+		mime_types=()
+		arg_counter=3
+		while [ $arg_counter -le $# ]
+		do
+			arg=${!arg_counter}
+			if [ "$arg" == "-b" ] || [ "$arg" == "--brief" ]
+			then
+				brief=true
+			elif [ "$arg" == "-e" ] || [ "$arg" == "--exit-on-failure" ]
+			then
+				exitOnFail=true
+			elif [ "$arg" == "-t" ] || [ "$arg" == "--torrent" ]
+			then
+				arg_counter=$(($arg_counter+1))
+				val=${!arg_counter}
+				if [ -z "$val" ]
+				then
+					>&2 echo "$arg argument requires a value"
+					exit $EXITCODE_BAD_ARGS
+				fi
+				inputs+=("$val")
+				mime_types+=("application/x-bittorrent")
+			elif [[ "$arg" =~ ^--torrent=(.*)$ ]]
+			then
+				val=${BASH_REMATCH[1]}
+				inputs+=("$val")
+				mime_types+=("application/x-bittorrent")
+			elif [ "$arg" == "-m" ] || [ "$arg" == "--metalink" ]
+			then
+				arg_counter=$(($arg_counter+1))
+				val=${!arg_counter}
+				if [ -z "$val" ]
+				then
+					>&2 echo "$arg argument requires a value"
+					exit $EXITCODE_BAD_ARGS
+				fi
+				inputs+=("$val")
+				mime_types+=("application/metalink4+xml")
+			elif [[ "$arg" =~ ^--metalink=(.*)$ ]]
+			then
+				val=${BASH_REMATCH[1]}
+				inputs+=("$val")
+				mime_types+=("application/metalink4+xml")
+			elif [ "$arg" == "-u" ] || [ "$arg" == "--url" ]
+			then
+				arg_counter=$(($arg_counter+1))
+				val=${!arg_counter}
+				if [ -z "$val" ]
+				then
+					>&2 echo "$arg argument requires a value"
+					exit $EXITCODE_BAD_ARGS
+				fi
+				inputs+=("$val")
+				mime_types+=("url")
+			elif [[ "$arg" =~ ^--url=(.*)$ ]]
+			then
+				val=${BASH_REMATCH[1]}
+				inputs+=("$val")
+				mime_types+=("url")
+			elif [[ "$arg" =~ ^-.*$ ]]
+			then
+				>&2 echo "unrecognized argument $arg"
+				# TODO show usage
+				exit $EXITCODE_BAD_ARGS
+			else
+				if [[ "$arg" =~ ^[0-9a-zA-Z_\-]+:\/\/.* ]] || [[ "$arg" =~ magnet:\?xt=.* ]]
+				then
+					inputs+=("$arg")
+					mime_types+=("url")
+				else
+					if [ ! -f "$arg" ]
+					then
+						>&2 echo "could not open file $arg"
+					fi
+					mime_type=$(mimetype -b "$arg")
+					if [ "$mime_type" == "application/x-bittorrent" ] || [ "$mime_type" == "application/metalink4+xml" ]
+					then
+						inputs+=("$arg")
+						mime_types+=("$mime_type")
+					elif [ -z "$mime_type" ]
+					then
+						>&2 echo "unable to determine file mime-type"
+						exit $EXITCODE_UNKNOWN_MIME_TYPE
+					else
+						>&2 echo "unsupported file mime type $mime_type"
+						exit $EXITCODE_UNSUPPORTED_MIME_TYPE
+					fi
+				fi
+			fi
+			arg_counter=$(($arg_counter+1))
+		done
+		if [ ${#inputs[@]} -eq 0 ]
 		then
-			>&2 echo "add requires a torrent path, URL, or magnet link to be given"
+			>&2 echo "no input file or url given"
 			# TODO show usage
 			exit $EXITCODE_BAD_ARGS
 		fi
 
-		# Create a unique folder to store the download
-		foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
-		while [ -d "$base_dir$DOWNLOADS_ROOT/$foldername" ]
-		do
+		function add-download # url, mimetype
+		{
+			url="$1"
+			mime="$2"
+			if [ -z "$url" ]
+			then
+				>&2 echo "add requires a torrent path, URL, or magnet link to be given"
+				return $EXITCODE_BAD_ARGS
+			fi
+
+			# Create a unique folder to store the download
 			foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
-		done
-		mkdir -p "$base_dir$DOWNLOADS_ROOT/$foldername"
+			while [ -d "$base_dir$DOWNLOADS_ROOT/$foldername" ]
+			do
+				foldername=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 16)
+			done
+			mkdir -p "$base_dir$DOWNLOADS_ROOT/$foldername"
 
-		# Make the request
-		escaped_folderpath=$(json-escape "$DOWNLOADS_ROOT/$foldername")
-		options="{\"dir\":\"$escaped_folderpath\", \"gid\":\"$foldername\"}"
-		if [[ "$url" =~ ^[0-9a-zA-Z_\-]+:\/\/.* ]] || [[ "$url" =~ magnet:\?xt=.* ]]
-		then
-			# URL or magnet link
-			escaped_url=$(json-escape "$url")
-			post_params="[\"$escaped_url\"], $options"
-			post_data=$(rpc-post-data "aria2.addUri" "$post_params")
-		else
-			# File
-			if [ ! -f "$url" ]
+			# Make the request
+			escaped_folderpath=$(json-escape "$DOWNLOADS_ROOT/$foldername")
+			options="{\"dir\":\"$escaped_folderpath\", \"gid\":\"$foldername\"}"
+			if [ "$mime" == "url" ]
 			then
-				>&2 echo "could not open file $url"
-				exit $EXITCODE_FILE_NOT_FOUND
-			fi
-			mime_type=$(mimetype -b "$url")
-			if [ "$mime_type" == "application/x-bittorrent" ]
+				# URL or magnet link
+				escaped_url=$(json-escape "$url")
+				post_params="[\"$escaped_url\"], $options"
+				post_data=$(rpc-post-data "aria2.addUri" "$post_params")
+			elif [ "$mime" == "application/x-bittorrent" ] || [ "$mime" == "application/metalink4+xml" ]
 			then
-				# Torrent
-				file_contents=$(cat "$url" | base64)
-				file_contents=$(json-escape "$file_contents")
-				post_params="\"$file_contents\", [], $options"
-				post_data=$(rpc-post-data "aria2.addTorrent" "$post_params")
-			elif [ "$mime_type" == "application/metalink4+xml" ]
-			then
-				# Metalink
-				file_contents=$(cat "$url" | base64)
-				file_contents=$(json-escape "$file_contents")
-				post_params="\"$file_contents\", $options"
-				post_data=$(rpc-post-data "aria2.addMetalink" "$post_params")
-			elif [ -z "$mime_type" ]
-			then
-				>&2 echo "unable to determine file mime-type"
-				exit $EXITCODE_UNKNOWN_MIME_TYPE
-			else
-				>&2 echo "unsupported file mime-type \"$mime_type\""
-				exit $EXITCODE_UNSUPPORTED_MIME_TYPE
-			fi
-		fi
-		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-		if [ -z "$resp" ]
-		then
-			rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
-			>&2 echo "an unknown error occured"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-		result_obj=$(echo "$resp" | jq ".result")
-		if [ "$result_obj" == "null" ]
-		then
-			rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
-			>&2 echo "an unknown error occured"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-
-		# Make another request to check the status of the download
-		gid=$(echo "$resp" | jq -r ".result")
-		escaped_gid=$(json-escape "$gid")
-		post_data2=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
-		resp2=$(wget -q -O - "$RPC_URL" --post-data="$post_data2")
-
-		status=$(echo "$resp2" | jq -r ".result.status")
-		if [ "$status" == "error" ]
-		then
-			# Remove the broken download and exit
-			>&2 echo "unable to start download"
-			error_code=$(echo "$resp2" | jq -r ".result.errorCode")
-			if [ -z "$error_code" ]
-			then
-				error_code=$(echo "$resp2" | jq -r ".result.code")
-				if [ -z "$error_code" ]
+				# File
+				if [ "$mime" == "application/x-bittorrent" ]
 				then
-					error_code=$EXITCODE_UNKNOWN_ERROR
+					# Torrent
+					file_contents=$(cat "$url" | base64)
+					file_contents=$(json-escape "$file_contents")
+					post_params="\"$file_contents\", [], $options"
+					post_data=$(rpc-post-data "aria2.addTorrent" "$post_params")
+				elif [ "$mime" == "application/metalink4+xml" ]
+				then
+					# Metalink
+					file_contents=$(cat "$url" | base64)
+					file_contents=$(json-escape "$file_contents")
+					post_params="\"$file_contents\", $options"
+					post_data=$(rpc-post-data "aria2.addMetalink" "$post_params")
+				elif [ -z "$mime_type" ]
+				then
+					>&2 echo "unable to determine file mime-type"
+					return $EXITCODE_UNKNOWN_MIME_TYPE
+				else
+					>&2 echo "unsupported file mime-type \"$mime_type\""
+					return $EXITCODE_UNSUPPORTED_MIME_TYPE
 				fi
 			fi
-			post_data3=$(rpc-post-data "aria2.forceRemove" "\"$escaped_gid\"")
-			wget -q "$RPC_URL" --post-data="$post_data3"
-			post_data4=$(rpc-post-data "aria2.removeDownloadResult" "\"$escaped_gid\"")
-			wget -q "$RPC_URL" --post-data="$post_data4"
-			rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
-			exit "$errorCode"
-		fi
+			resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+			if [ -z "$resp" ]
+			then
+				rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
+				>&2 echo "an unknown error occured"
+				return $EXITCODE_UNKNOWN_ERROR
+			fi
+			result_obj=$(echo "$resp" | jq ".result")
+			if [ "$result_obj" == "null" ]
+			then
+				rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
+				>&2 echo "an unknown error occured"
+				return $EXITCODE_UNKNOWN_ERROR
+			fi
 
-		echo "Download added successfully"
-		echo "GID: $gid"
+			# Make another request to check the status of the download
+			gid=$(echo "$resp" | jq -r ".result")
+			escaped_gid=$(json-escape "$gid")
+			post_data2=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
+			resp2=$(wget -q -O - "$RPC_URL" --post-data="$post_data2")
+
+			status=$(echo "$resp2" | jq -r ".result.status")
+			if [ "$status" == "error" ]
+			then
+				# Remove the broken download and exit
+				>&2 echo "unable to start download"
+				error_code=$(echo "$resp2" | jq -r ".result.errorCode")
+				if [ -z "$error_code" ]
+				then
+					error_code=$(echo "$resp2" | jq -r ".result.code")
+					if [ -z "$error_code" ]
+					then
+						error_code=$EXITCODE_UNKNOWN_ERROR
+					fi
+				fi
+				post_data3=$(rpc-post-data "aria2.forceRemove" "\"$escaped_gid\"")
+				wget -q "$RPC_URL" --post-data="$post_data3"
+				post_data4=$(rpc-post-data "aria2.removeDownloadResult" "\"$escaped_gid\"")
+				wget -q "$RPC_URL" --post-data="$post_data4"
+				rm -rf "$base_dir$DOWNLOADS_ROOT/$foldername"
+				return "$errorCode"
+			fi
+
+			if $brief
+			then
+				echo "$gid"
+			else
+				echo "Download added successfully"
+				echo "GID: $gid"
+			fi
+			return 0
+		}
+
+		last_bad_retval=0
+		input_counter=0
+		while [ $input_counter -lt ${#inputs[@]} ]
+		do
+			input=${inputs[$input_counter]}
+			mime=${mime_types[$input_counter]}
+			add-download "$input" "$mime"
+			retval=$?
+			if [ $retval -ne 0 ]
+			then
+				if $exitOnFail
+				then
+					exit $retval
+				fi
+				last_bad_retval=$retval
+			fi
+			input_counter=$(($input_counter+1))
+		done
+
+		exit $last_bad_retval
 	elif [ "$2" == "remove" ]
 	then
 		# Read the arguments
-		gid=
+		gids=()
 		delete=false
+		exitOnFail=false
 		arg_counter=3
 		while [ $arg_counter -le $# ]
 		do
@@ -280,109 +423,133 @@ then
 			if [ "$arg" == "-d" ] || [ "$arg" == "--delete" ]
 			then
 				delete=true
+			elif [ "$arg" == "-e" ] || [ "$arg" == "--exit-on-failure" ]
+			then
+				exitOnFail=true
 			else
 				if [[ "$arg" =~ ^- ]]
 				then
 					>&2 echo "unrecognized argument $arg"
 					exit $EXITCODE_BAD_ARGS
-				elif [ -z "$gid" ]
-				then
-					gid="$arg"
 				else
-					>&2 echo "unrecognized argument $arg"
-					exit $EXITCODE_BAD_ARGS
+					gids+=("$arg")
 				fi
 			fi
 			arg_counter=$(($arg_counter+1))
 		done
-		if [ -z "$gid" ]
+		if [ ${#gids[@]} -eq 0 ]
 		then
 			>&2 echo "no GID specified"
 			# TODO show usage
 			exit $EXITCODE_BAD_ARGS
 		fi
 
-		# Make request for the download's dir option
-		escaped_gid=$(json-escape "$gid")
-		post_data=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
-		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-		if [ -z "$resp" ]
-		then
-			>&2 echo "an unknown error occured"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-		result_obj=$(echo "$resp" | jq ".result")
-		if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
-		then
-			>&2 echo "an unknown error occured"
-			exit $EXITCODE_UNKNOWN_ERROR
-		fi
-		download_dir=$(echo "$resp" | jq -r ".result.dir")
-		status=$(echo "$resp" | jq -r ".result.status")
+		function remove-download # gid
+		{
+			gid="$1"
 
-		# Make "remove" request
-		if [ "$status" != "removed" ] && [ "$status" != "complete" ] && [ "$status" != "error" ]
-		then
-			post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
-			resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
-			removed_gid=$(echo "$resp3" | jq -r ".result")
-			if [ -z "$removed_gid" ] || [ "$removed_gid" == "null" ]
-			then
-				>&2 echo "aria2 could not find the download"
-				exit $EXITCODE_DOWNLOAD_NOT_FOUND
-			fi
+			# Make request for the download's dir option
+			escaped_gid=$(json-escape "$gid")
+			post_data=$(rpc-post-data "aria2.tellStatus" "\"$escaped_gid\"")
 			resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+			if [ -z "$resp" ]
+			then
+				>&2 echo "an unknown error occured"
+				return $EXITCODE_UNKNOWN_ERROR
+			fi
+			result_obj=$(echo "$resp" | jq ".result")
+			if [ "$result_obj" == "null" ] || [ "$result_obj" == "undefined" ]
+			then
+				>&2 echo "an unknown error occured"
+				return $EXITCODE_UNKNOWN_ERROR
+			fi
+			download_dir=$(echo "$resp" | jq -r ".result.dir")
 			status=$(echo "$resp" | jq -r ".result.status")
-			check_count=0
-			while [ "$status" != "removed" ] && [ -n "$status" ] && [ "$status" != "null" ]
-			do
-				if [ "$check_count" -ge "5" ]
+
+			# Make "remove" request
+			if [ "$status" != "removed" ] && [ "$status" != "complete" ] && [ "$status" != "error" ]
+			then
+				post_data3=$(rpc-post-data "aria2.remove" "\"$escaped_gid\"")
+				resp3=$(wget -q -O - "$RPC_URL" --post-data="$post_data3")
+				removed_gid=$(echo "$resp3" | jq -r ".result")
+				if [ -z "$removed_gid" ] || [ "$removed_gid" == "null" ]
 				then
-					echo "removal is taking too long... force removing..."
-					forceremove_post_data=$(rpc-post-data "aria2.forceRemove" "\"$escaped_gid\"")
-					forceremove_resp=$(wget -q -O - "$RPC_URL" --post-data="$forceremove_post_data")
+					>&2 echo "aria2 could not find the download"
+					return $EXITCODE_DOWNLOAD_NOT_FOUND
 				fi
-				sleep 0.2
 				resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
 				status=$(echo "$resp" | jq -r ".result.status")
-				check_count=$(($check_count+1))
-			done
-			echo "removed download $removed_gid"
-		fi
-
-		# Get the status again to make sure the download result hasn't already been removed
-		resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
-		if [ -n "$resp" ]
-		then
-			# Remove the download status
-			post_data4=$(rpc-post-data "aria2.removeDownloadResult" \"$escaped_gid\")
-			resp4=$(wget -q -O - "$RPC_URL" --post-data="$post_data4")
-			resp4_result=$(echo "$resp4" | jq -r ".result")
-			if [ "$resp4_result" != "OK" ]
-			then
-				echo "aria2 couldn't remove the download result"
+				check_count=0
+				while [ "$status" != "removed" ] && [ -n "$status" ] && [ "$status" != "null" ]
+				do
+					if [ "$check_count" -ge "5" ]
+					then
+						echo "removal is taking too long... force removing..."
+						forceremove_post_data=$(rpc-post-data "aria2.forceRemove" "\"$escaped_gid\"")
+						forceremove_resp=$(wget -q -O - "$RPC_URL" --post-data="$forceremove_post_data")
+					fi
+					sleep 0.2
+					resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+					status=$(echo "$resp" | jq -r ".result.status")
+					check_count=$(($check_count+1))
+				done
+				return "removed download $removed_gid"
 			fi
-		fi
 
-		retval=0
+			# Get the status again to make sure the download result hasn't already been removed
+			resp=$(wget -q -O - "$RPC_URL" --post-data="$post_data")
+			if [ -n "$resp" ]
+			then
+				# Remove the download status
+				post_data4=$(rpc-post-data "aria2.removeDownloadResult" \"$escaped_gid\")
+				resp4=$(wget -q -O - "$RPC_URL" --post-data="$post_data4")
+				resp4_result=$(echo "$resp4" | jq -r ".result")
+				if [ "$resp4_result" != "OK" ]
+				then
+					echo "aria2 couldn't remove the download result"
+				fi
+			fi
 
-		# Remove the download folder if delete option is given
-		if $delete
-		then
-			escaped_download_dir=$(escape-cmd-string "$download_dir")
-			vagrant ssh -c "rm -rf $escaped_download_dir" -- -q
-			retval=$?
+			retval=0
+
+			# Remove the download folder if delete option is given
+			if $delete
+			then
+				escaped_download_dir=$(escape-cmd-string "$download_dir")
+				vagrant ssh -c "rm -rf $escaped_download_dir" -- -q
+				retval=$?
+				if [ $retval -eq 0 ]
+				then
+					echo "deleted download $gid"
+				fi
+			fi
+
 			if [ $retval -eq 0 ]
 			then
-				echo "deleted download $gid"
+				echo "done"
 			fi
-		fi
+			return $retval
+		}
 
-		if [ $retval -eq 0 ]
-		then
-			echo "done"
-		fi
-		exit $retval
+		last_bad_retval=0
+		gid_counter=0
+		while [ $gid_counter -lt ${#gids[@]} ]
+		do
+			gid=${gids[$gid_counter]}
+			remove-download "$gid"
+			retval=$?
+			if [ $retval -ne 0 ]
+			then
+				if $exitOnFail
+				then
+					exit $retval
+				fi
+				last_bad_retval=$retval
+			fi
+			gid_counter=$(($gid_counter+1))
+		done
+
+		exit $last_bad_retval
 	elif [ "$2" == "list" ]
 	then
 		# Read the arguments
