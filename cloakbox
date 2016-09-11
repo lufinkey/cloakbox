@@ -67,7 +67,7 @@ elif [ "$1" == "ssh" ]
 then
 	export VAGRANT_CWD=$(fullpath "$base_dir")
 	shift
-	vagrant ssh "$@"
+	vagrant ssh -- "$@"
 	retval=$?
 	exit $retval
 elif [ "$1" == "ip" ]
