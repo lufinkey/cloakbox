@@ -88,6 +88,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 			Output the specified property for each download. If this argument is not used, the output for each download will list all of its properties. This argument cannot be used if no GID is specified.
 
 * **destroy** [--clean|-c]
+
 	Destroy the cloakbox VM
 
 	* **-c**, **--clean**
