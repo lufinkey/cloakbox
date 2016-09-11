@@ -9,27 +9,27 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 * **setup**
 
-	Sets up cloakbox environment and installs necessary vagrant plugins
+	Set up cloakbox environment and install necessary vagrant plugins
 	
 * **start**
 
-	Creates and boots the cloakbox VM. This subcommand implicitly calls **setup** if it needs to be called
+	Create and boot the cloakbox VM. This subcommand implicitly calls **setup** if it needs to be called
 
 * **stop**
 
-	Powers off the cloakbox VM.
+	Power off the cloakbox VM.
 
 * **updatesettings**
 
-	Updates cloakbox settings from its config files
+	Update cloakbox settings from its config files
 
 * **ssh**
 
-	SSHs into the cloakbox VM. The arguments to this subcommand are passed directly to the ssh executable
+	SSH into the cloakbox VM. The arguments to this command are passed directly to the ssh executable
 
 * **ip**
 
-	Outputs the external IP of the cloakbox VM
+	Output the external IP of the cloakbox VM
 
 * **download** \<subcommand> [\<args>]
 
@@ -37,7 +37,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 	* **add** [--brief|-b] [--exit-on-failure|-e] [--torrent=\<PATH>|-t \<PATH>] [--metalink=\<PATH>|-m \<PATH>] [--url=\<URL>|-u \<URL>] TORRENT|METALINK|URL|MAGNET...
 
-		Adds a TORRENT, METALINK, URL, or MAGNET to the download manager and outputs a GID to identify the added download
+		Add a TORRENT, METALINK, URL, or MAGNET to the download manager and output a GID to identify the added download
 
 		* **-b**, **--brief**
 
@@ -61,7 +61,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 	* **remove** [--delete|-d] [--exit-on-failure|-e] GID...
 
-		Removes a download with the gid GID
+		Remove a download with the gid GID
 
 		* **-d**, **--delete**
 
@@ -73,7 +73,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 	* **list** CATEGORY [--include=\<PROPERTY>|-i \<PROPERTY>]
 
-		Lists all downloads and their properties in the specified CATEGORY. CATEGORY can be **all**, **active**, **waiting**, or **stopped**.
+		List all downloads and their properties in the specified CATEGORY. CATEGORY can be **all**, **active**, **waiting**, or **stopped**.
 
 		* **-i** PROPERTY, **--include**=PROPERTY
 
