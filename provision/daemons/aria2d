@@ -26,7 +26,7 @@ stop)
 	RETVAL=$?
 	;;
 force-stop)
-	log_daemon "Forcibly stopping aria2c daemon"
+	log_daemon_msg "Forcibly stopping aria2c daemon"
 	start-stop-daemon --stop --oknodo --chuid "root" --signal 9 --exec "$(which aria2c)"
 	RETVAL=$?
 	;;
