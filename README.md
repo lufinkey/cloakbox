@@ -23,7 +23,7 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 	Update cloakbox settings from its config files
 
-* **ssh**
+* **ssh** [\<args>]
 
 	SSH into the cloakbox VM. The arguments to this command are passed directly to the ssh executable
 
