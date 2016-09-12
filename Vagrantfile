@@ -1,4 +1,29 @@
 
+# default config values
+aria2_port=6803
+
+# read config values
+open("shared/.cloakbox/cloakbox.conf") { |f| f.each_with_index do |line, i|
+	line.strip!
+
+	# strip comment
+	if line =~ /^(.*)#/
+		line=$1
+	end
+
+	if line =~ /^\s*(.*)\s*=\s*(.*)\s*$/
+		config_key=$1
+		config_value=$2
+		if config_key == "aria2-port"
+			if config_value =~ /^[0-9]+$/
+				aria2_port=config_value
+			else
+				STDERR.puts "invalid config value for aria2-port"
+			end
+		end
+	end
+end }
+
 Vagrant.configure(2) do |config|
 
 	config.vm.box = "ubuntu/xenial32"
@@ -12,7 +37,7 @@ Vagrant.configure(2) do |config|
 		vb.memory = "2048"
 	end
 
-	config.vm.network "forwarded_port", guest: 6800, host: 6803, protocol: "tcp"
+	config.vm.network "forwarded_port", guest: 6800, host: aria2_port, protocol: "tcp"
 
 	config.ssh.insert_key = true
 

@@ -12,6 +12,46 @@ readonly EXITCODE_DOWNLOAD_NOT_FOUND=104
 
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 
+# create prefs if they don't exist
+if [ ! -f "shared/.$prog_name/$prog_name.conf" ]
+then
+	cloakbox_prefs=$(
+		cat <<EOF
+aria2-port=6803
+
+EOF
+)
+	echo "$cloakbox_prefs" > "shared/.$prog_name/$prog_name.conf"
+fi
+
+# default config values
+aria2_port=6803
+
+# read config values
+while read line
+do
+	# strip comment
+	if [[ "$line" =~ ^(.*)# ]]
+	then
+		line=${BASH_REMATCH[1]}
+	fi
+
+	if [[ "$line" =~ ^\s*(.*)\s*=\s*(.*)\s*$ ]]
+	then
+		config_key=${BASH_REMATCH[1]}
+		config_value=${BASH_REMATCH[2]}
+		if [ "$config_key" == "aria2-port" ]
+		then
+			if [[ "$config_value" =~ ^[0-9]+$ ]]
+			then
+				aria2_port="$config_value"
+			else
+				>&2 echo "invalid config value for aria2-port"
+			fi
+		fi
+	fi
+done < "$base_dir/shared/.$prog_name/$prog_name.conf"
+
 function fullpath
 {
 	cd "$1"
@@ -60,8 +100,14 @@ then
 	exit $retval
 elif [ "$1" == "updatesettings" ]
 then
+	cd "$base_dir"
 	vagrant provision
 	retval=$?
+	current_aria2_port=$(vagrant port --guest 6800)
+	if [ -n "$current_aria2_port" ] && [ "$aria2_port" -ne "$current_aria2_port" ]
+	then
+		>&2 echo "aria2 port has changed. You must reboot cloakbox to use the download manager"
+	fi
 	exit $retval
 elif [ "$1" == "ssh" ]
 then
@@ -95,7 +141,7 @@ then
 elif [ "$1" == "download" ]
 then
 	readonly DOWNLOADS_ROOT="/shared/downloads"
-	readonly RPC_URL="http://localhost:6803/jsonrpc"
+	readonly RPC_URL="http://localhost:$aria2_port/jsonrpc"
 	readonly RPC_TOKEN=$(cat "$base_dir/shared/.$prog_name/secret")
 
 	function json-escape
