@@ -17,7 +17,11 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 * **stop**
 
-	Power off the cloakbox VM.
+	Power off the cloakbox VM
+
+* **restart**
+
+	Restart the cloakbox VM
 
 * **updatesettings**
 
