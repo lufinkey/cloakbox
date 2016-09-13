@@ -101,13 +101,7 @@ then
 elif [ "$1" == "restart" ]
 then
 	cd "$base_dir"
-	vagrant halt
-	retval=$?
-	if [ $retval -ne 0 ]
-	then
-		exit $retval
-	fi
-	vagrant up
+	vagrant reload
 	retval=$?
 	exit $retval
 elif [ "$1" == "updatesettings" ]
