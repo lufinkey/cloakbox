@@ -13,7 +13,7 @@ readonly EXITCODE_DOWNLOAD_NOT_FOUND=104
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 
 # create prefs if they don't exist
-if [ ! -f "shared/.$prog_name/$prog_name.conf" ]
+if [ ! -f "$base_dir/shared/.$prog_name/$prog_name.conf" ]
 then
 	cloakbox_prefs=$(
 		cat <<EOF
@@ -21,7 +21,7 @@ aria2-port=6803
 
 EOF
 )
-	echo "$cloakbox_prefs" > "shared/.$prog_name/$prog_name.conf"
+	echo "$cloakbox_prefs" > "$base_dir/shared/.$prog_name/$prog_name.conf"
 fi
 
 # default config values
