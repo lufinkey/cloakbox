@@ -25,8 +25,7 @@ sudo echo "$rpc_secret" > "/shared/.$prog_name/secret"
 
 sudo update-cloakbox-settings
 
-sudo systemctl enable openvpn@openvpn.service
-sudo systemctl start openvpn@openvpn.service
+sudo systemctl disable openvpn@openvpn.service
 
 if [ ! -f "/shared/downloads/download_state" ]
 then

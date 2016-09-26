@@ -12,6 +12,10 @@ readonly EXITCODE_DOWNLOAD_NOT_FOUND=104
 
 base_dir=$(dirname "${BASH_SOURCE[0]}")
 
+mkdir -p "$base_dir/shared/.$prog_name"
+mkdir -p "$base_dir/shared/downloads"
+mkdir -p "$base_dir/shared/openvpn"
+
 # create prefs if they don't exist
 if [ ! -f "$base_dir/shared/.$prog_name/$prog_name.conf" ]
 then
@@ -60,10 +64,6 @@ function fullpath
 
 function setup
 {
-	mkdir -p "shared/.$prog_name"
-	mkdir -p "shared/downloads"
-	mkdir -p "shared/openvpn"
-
 	vagrant plugin install vagrant-vbguest
 	vagrant plugin install vagrant-sshfs
 

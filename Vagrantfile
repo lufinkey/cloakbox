@@ -47,5 +47,6 @@ Vagrant.configure(2) do |config|
 	config.vm.provision "file", source: "provision/daemons", destination: "/tmp/daemons"
 
 	config.vm.provision "shell", path: "provision/scripts/vagrant-setup.sh"
+	config.vm.provision "shell", path: "provision/scripts/daemons-start.sh", run: "always"
 end
 
