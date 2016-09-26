@@ -889,7 +889,8 @@ then
 		rm -rf .vagrant
 		rm -rf *.log
 		rm -rf shared/downloads
-		rm -rf "shared/.$prog_name"
+		rm -rf "shared/.$prog_name/setup_done"
+		rm -rf "shared/.$prog_name/secret"
 	fi
 	exit $retval
 else
