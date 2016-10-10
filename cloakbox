@@ -148,7 +148,7 @@ elif [ "$1" == "download" ]
 then
 	readonly DOWNLOADS_ROOT="/shared/downloads"
 	readonly RPC_URL="http://localhost:$aria2_port/jsonrpc"
-	readonly RPC_TOKEN=$(cat "$base_dir/shared/.$prog_name/secret")
+	readonly RPC_TOKEN=$(cat "$base_dir/shared/.$prog_name/secret" 2> /dev/null)
 
 	function json-escape
 	{
