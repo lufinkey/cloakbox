@@ -45,7 +45,7 @@ Note: In order to use cloakbox under a VPN, you must first put your openvpn conf
 
 	* **add** [--brief|-b] [--exit-on-failure|-e] [--torrent=\<PATH>|-t \<PATH>]... [--metalink=\<PATH>|-m \<PATH>]... [--url=\<URL>|-u \<URL>]... TORRENT|METALINK|URL|MAGNET...
 
-		Add a TORRENT, METALINK, URL, or MAGNET to the download manager and output a GID to identify the added download
+		Adds one or more TORRENT, METALINK, URL, or MAGNET links to the download manager and outputs a GID to identify each of the added downloads
 
 		* **-b**, **--brief**
 
@@ -53,7 +53,7 @@ Note: In order to use cloakbox under a VPN, you must first put your openvpn conf
 
 		* **-e**, **--exit-on-failure**
 
-			Exit if a download fails to add
+			Exit if a single download fails to add
 
 		* **-t**, **--torrent**=PATH
 
@@ -69,7 +69,7 @@ Note: In order to use cloakbox under a VPN, you must first put your openvpn conf
 
 	* **remove** [--delete|-d] [--exit-on-failure|-e] GID...
 
-		Remove a download with the gid GID
+		Remove one or more downloads with the specified GIDs
 
 		* **-d**, **--delete**
 
@@ -77,7 +77,7 @@ Note: In order to use cloakbox under a VPN, you must first put your openvpn conf
 
 		* **-e**, **--exit-on-failure**
 
-			Exit if a download fails to remove
+			Exit if a single download fails to remove
 
 	* **list** CATEGORY [--include=\<PROPERTY>|-i \<PROPERTY>]...
 
