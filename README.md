@@ -5,11 +5,13 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 ## Usage
 
-Note: In order to use cloakbox under a VPN, you must first put your openvpn config file at ````shared/openvpn/openvpn.conf````
-
 ```` bash
 ./cloakbox \<command> [\<args>]
 ````
+
+Note: In order to use cloakbox under a VPN, you must first put your openvpn config file at shared/openvpn/openvpn.conf
+
+Cloakbox takes a variety of different subcommands, which are listed here
 
 * **setup**
 
