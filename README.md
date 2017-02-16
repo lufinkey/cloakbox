@@ -3,11 +3,19 @@
 
 Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manage your *ahem* legal *ahem* downloads.
 
+## Installing
+
+Cloakbox has a few dependencies that will need to be installed before it can function properly. These dependencies are listed in dependencies.txt. If you have apt as your package manager, the easiest way to install these dependencies is to cd into the repository folder and run:
+
+``` bash
+sudo apt-get install $(cat dependencies.txt)
+```
+
 ## Usage
 
-```` bash
+``` bash
 ./cloakbox \<command> [\<args>]
-````
+```
 
 In order to use cloakbox under a VPN, you must first put your openvpn config file at ````shared/openvpn/openvpn.conf````
 
