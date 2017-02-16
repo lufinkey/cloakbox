@@ -14,7 +14,7 @@ sudo apt-get install $(cat dependencies.txt)
 ## Usage
 
 ``` bash
-./cloakbox \<command> [\<args>]
+./cloakbox <command> [<args>]
 ```
 
 In order to use cloakbox under a VPN, you must first put your openvpn config file at ````shared/openvpn/openvpn.conf````
