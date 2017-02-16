@@ -5,7 +5,12 @@ Cloakbox is a virtual machine that is connected to a VPN and uses aria2 to manag
 
 ## Installing
 
-Cloakbox has a few dependencies that will need to be installed before it can function properly. These dependencies are listed in dependencies.txt. If you have apt as your package manager, the easiest way to install these dependencies is to cd into the repository folder and run:
+``` bash
+git clone https://github.com/lufinkey/cloakbox
+cd cloakbox
+```
+
+Cloakbox has a few dependencies that will need to be installed before it can function properly. These dependencies are listed in dependencies.txt. If you have apt as your package manager, the easiest way to install these dependencies is to run:
 
 ``` bash
 sudo apt-get install $(cat dependencies.txt)
